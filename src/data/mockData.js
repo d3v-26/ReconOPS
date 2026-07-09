@@ -316,3 +316,131 @@ export const briefings = [
     next: 'Next automated synthesis at +5 min or on critical event.',
   },
 ]
+
+// ─── Operation lifecycle ───
+export const OP_PHASES = [
+  { id: 'STANDUP', label: 'STAND-UP', num: '01', desc: 'Assets check in · comms nets established · sensors calibrated' },
+  { id: 'PLANNING', label: 'PLANNING', num: '02', desc: 'Targets designated · taskings assigned · plan approved' },
+  { id: 'EXECUTION', label: 'EXECUTION', num: '03', desc: 'Live multimodal surveillance · AI fusion · operator decisions' },
+  { id: 'DEBRIEF', label: 'DEBRIEF', num: '04', desc: 'After-action synthesis · results · report export' },
+]
+
+export const onboardingChecklist = [
+  { id: 'CHK-1', label: 'Command net initialized', auto: true },
+  { id: 'CHK-2', label: 'Encryption keys distributed', auto: true },
+  { id: 'CHK-3', label: 'All ground assets linked', linkGate: ['VH-03', 'HT-01'] },
+  { id: 'CHK-4', label: 'Aerial assets linked', linkGate: ['DR-01', 'DR-02'] },
+  { id: 'CHK-5', label: 'Sensor mesh linked & calibrated', linkGate: ['CAM-04', 'CAM-07', 'AS-02', 'AS-05'] },
+  { id: 'CHK-6', label: 'Data/space layers linked', linkGate: ['SAT-9', 'ML-02', 'DF-01'] },
+]
+
+export const seedTargets = [
+  { id: 'TGT-01', name: 'WAREHOUSE S-3', kind: 'structure', x: 64, y: 48, priority: 'High', status: 'Designated', note: 'Suspected staging site — three-source corroboration.' },
+  { id: 'TGT-02', name: 'RIDGE OBJECT', kind: 'unknown', x: 84, y: 30, priority: 'Medium', status: 'Unverified', note: 'Unstable SAM-H mask; requires closer pass.' },
+  { id: 'TGT-03', name: 'ROUTE BRAVO CORRIDOR', kind: 'route', x: 44, y: 62, priority: 'Low', status: 'Monitor', note: 'Supply movement corridor — watch during 14:00–15:00Z window.' },
+]
+
+export const TASK_OPTIONS = [
+  'Overwatch — Sector 7', 'Track target', 'Perimeter watch', 'Acoustic sweep', 'Route patrol',
+  'Satellite pass tasking', 'Ground verification', 'Terrain sync', 'Report ingestion', 'Structure scan', 'Standby reserve',
+]
+
+export const planProposal = {
+  summary: 'LLM PLAN SYNTHESIS — Objective decomposed into 4 tasking groups across 12 assets. Coverage model predicts 94% sensor coverage of Sector 7 through the 14:00–15:00Z window, with SPECTER-2 held as mobile reserve for gap-fill. All targets receive at least two independent modalities.',
+  taskings: [
+    { asset: 'SPECTER-1 (DR-01)', task: 'Orbit overwatch — warehouse S-3 (TGT-01), 120m AGL' },
+    { asset: 'SPECTER-2 (DR-02)', task: 'Mobile reserve — gap-fill sector 5, ridge pass on demand (TGT-02)' },
+    { asset: 'ARGUS-NE / ARGUS-SW', task: 'Fixed perimeter coverage, east gate + SW approach' },
+    { asset: 'EARSHOT-A/B', task: 'Acoustic sweep — ridge bearing 040–060, band scan' },
+    { asset: 'NOMAD-3', task: 'Route Bravo patrol loop (TGT-03), +400m east extension' },
+    { asset: 'KEYHOLE-9', task: '14:20Z pass over grid QT 44 — ridge + warehouse stills' },
+    { asset: 'VANGUARD', task: 'Ground verification hold — south of safe corridor' },
+    { asset: 'ATLAS / LEDGER / LIDAR', task: 'Continuous fusion layers; LIDAR rescan when restored' },
+  ],
+  contingencies: [
+    'Zone breach GF-2 → SPECTER-1 breaks orbit for visual confirm; VANGUARD alerts.',
+    'CAM-07 failure → SPECTER-2 reroutes to sector 5 within 6 min.',
+    'Unknown signal repeats → EARSHOT-B dedicates channel for language ID.',
+  ],
+  risks: 'Single point of weakness: LIDAR-RIG offline reduces 3D verification. Movement window overlaps satellite pass — collection vs. exposure tradeoff accepted.',
+}
+
+export const commsTraffic = {
+  STANDUP: [
+    { from: 'SPECTER-1', text: 'Checking in on command net. Systems green, holding at rally point.' },
+    { from: 'ARGUS-NE', text: 'Link established. Calibration frame uploaded.' },
+    { from: 'EARSHOT-A', text: 'On net. Acoustic baseline captured, noise floor -62dB.' },
+    { from: 'NOMAD-3', text: 'Radio check. Position at staging, awaiting tasking.' },
+    { from: 'VANGUARD', text: 'Team up on encrypted net. Comms check complete, all green.' },
+    { from: 'KEYHOLE-9', text: 'Downlink window confirmed. Next pass 14:20Z.' },
+  ],
+  PLANNING: [
+    { from: 'VANGUARD', text: 'Copy draft taskings. Request confirm on hold position south of corridor.' },
+    { from: 'SPECTER-1', text: 'Orbit profile received. Fuel for 3.2h on station.' },
+    { from: 'NOMAD-3', text: 'Route Bravo extension acknowledged. Rolling in 5.' },
+    { from: 'EARSHOT-B', text: 'Requesting band allocation for unknown-signal watch.' },
+  ],
+  EXECUTION: [
+    { from: 'SPECTER-1', text: 'On station over TGT-01. Feed is live.' },
+    { from: 'VANGUARD', text: 'Holding. Visual on route Bravo, light traffic.' },
+    { from: 'EARSHOT-A', text: 'Acoustic event bearing 042 — pushed to fusion.' },
+    { from: 'NOMAD-3', text: 'Passing checkpoint north. Nothing unusual on approach.' },
+    { from: 'ARGUS-SW', text: 'Signal degrading, wind loading on mast. Still operational.' },
+    { from: 'SPECTER-2', text: 'Rerouting to sector 5. ETA 6 minutes.' },
+  ],
+  DEBRIEF: [
+    { from: 'VANGUARD', text: 'RTB complete. Field notes uploaded to LEDGER.' },
+    { from: 'SPECTER-1', text: 'Feed archive closed. 4.1h footage tagged for review.' },
+    { from: 'ATLAS-LAYER', text: 'Final track fusion complete. 10 entities archived.' },
+  ],
+}
+
+export const aarReport = {
+  stats: [
+    { label: 'Events Processed', value: '1,204' },
+    { label: 'SAM-H Segments', value: '312' },
+    { label: 'Anomalies Raised', value: '10' },
+    { label: 'Anomalies Resolved', value: '7' },
+    { label: 'Operator Decisions', value: '3' },
+    { label: 'Avg Model Confidence', value: '0.87' },
+    { label: 'Comms Uptime', value: '99.4%' },
+    { label: 'Coverage Achieved', value: '94%' },
+  ],
+  timeline: [
+    { t: '11:02Z', label: 'Operation stand-up — 12 assets linked, nets established', sev: 'Low' },
+    { t: '11:38Z', label: 'Plan approved — 3 targets designated, taskings pushed', sev: 'Low' },
+    { t: '13:21Z', label: 'LIDAR-RIG fault mid-scan — 3D verification degraded', sev: 'Medium' },
+    { t: '13:58Z', label: 'Ridge object flagged — unstable segmentation, human review', sev: 'High' },
+    { t: '14:00Z', label: 'GF-2 zone breach — CONTACT-X, fused with video track T-07', sev: 'Critical' },
+    { t: '14:02Z', label: 'Acoustic impact event bearing 042 — correlated next pass', sev: 'Critical' },
+    { t: '14:20Z', label: 'KEYHOLE-9 pass — ridge object resolved as abandoned equipment', sev: 'Medium' },
+    { t: '14:55Z', label: 'Movement window closed — supply activity documented, no escalation', sev: 'Low' },
+    { t: '15:30Z', label: 'Operation closed — assets RTB, archives sealed', sev: 'Low' },
+  ],
+  findings: 'Multimodal fusion confirmed staging activity at warehouse S-3 within the predicted window. The GF-2 breach entity was identified, tracked, and deterred without escalation. Ridge anomaly resolved as abandoned equipment after the 14:20Z pass — cross-modal correlation (audio mention + photo mask instability) correctly prioritized it. 7 of 10 anomalies closed; 3 deferred pending LIDAR restore.',
+  lessons: '1) Sensor mesh needs N+1 redundancy — CAM-07 degradation nearly opened a blind spot during peak window. 2) LIDAR single-point-of-failure reduced 3D verification confidence; schedule paired scans. 3) Human review latency on low-confidence segments (0.55) was the slowest loop — pre-allocate reviewer during active windows.',
+  recommendation: 'Archive operation as template. Redeploy sensor mesh with overlap in sector 5. Maintain watch posture on route Bravo for 48h.',
+}
+
+// ─── Theaters ───
+export const THEATERS = {
+  Global: { scene: 'global', grid: 'QT', desc: 'Wide-area multimodal fusion — Sector 7' },
+  Urban: { scene: 'urban', grid: 'UR', desc: 'Dense city-block surveillance — district grid' },
+  Maritime: { scene: 'maritime', grid: 'MR', desc: 'Littoral watch — shipping lanes + harbor approach' },
+  Border: { scene: 'border', grid: 'BD', desc: 'Border corridor — fence line + crossing points' },
+  Airspace: { scene: 'airspace', grid: 'AS', desc: 'Air corridor deconfliction — flight levels 080–240' },
+  Cyber: { scene: 'cyber', grid: 'CY', desc: 'Network topology — intrusion + exfil watch' },
+  'Disaster Response': { scene: 'disaster', grid: 'DR', desc: 'Flood zone — search & rescue coordination' },
+  'Research Lab': { scene: 'lab', grid: 'RL', desc: 'Facility interior — instrument + access monitoring' },
+}
+
+// ─── Console suggestions (phase-aware quick commands) ───
+export const consoleSuggestions = {
+  STANDUP: ['link all assets', 'show comms status', 'summarize readiness', 'advance to planning'],
+  PLANNING: ['request ai plan', 'approve plan', 'summarize current mission risk', 'advance to execution'],
+  EXECUTION: [
+    'switch to audio', 'translate the transcript', 'show video thermal view', 'set theater maritime',
+    'filter critical anomalies', 'approve all decisions', 'generate operator briefing', 'end operation',
+  ],
+  DEBRIEF: ['generate briefing', 'summarize current mission risk', 'return to execution'],
+}

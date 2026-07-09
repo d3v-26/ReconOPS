@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react'
 import HudCard from './HudCard.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import { feedEvents } from '../data/mockData.js'
+import { useOperation } from '../context/OperationContext.jsx'
 
 const PRIORITIES = ['All', 'Critical', 'High', 'Medium', 'Low']
 const MEDIA = ['All', 'Photo', 'Audio', 'Video', 'Map', '3D', 'Document', 'Sensor']
+const SOURCE_MODE = { Photo: 'photo', Audio: 'audio', Video: 'video', Map: 'map', '3D': '3d', Document: 'docs', Sensor: 'map' }
 
 export default function IntelligenceFeed() {
-  const [prio, setPrio] = useState('All')
-  const [media, setMedia] = useState('All')
+  const { feedFilters, setFeedFilters, setMode, phase } = useOperation()
+  const { prio, media } = feedFilters
+  const setPrio = (p) => setFeedFilters((f) => ({ ...f, prio: p }))
+  const setMedia = (m) => setFeedFilters((f) => ({ ...f, media: m }))
   const [visible, setVisible] = useState(5)
 
   // streaming effect: reveal items over time
@@ -24,6 +28,7 @@ export default function IntelligenceFeed() {
 
   return (
     <HudCard
+      panelId="feed"
       title="AI Intelligence Feed"
       right={<span className="chip chip-cyan pulse"><span className="dot" />STREAMING</span>}
       style={{ flex: 2, minHeight: 220 }}
@@ -39,7 +44,13 @@ export default function IntelligenceFeed() {
         ))}
       </div>
       {items.map((e) => (
-        <div key={e.id} className={`feed-item prio-${e.priority}`}>
+        <div
+          key={e.id}
+          className={`feed-item prio-${e.priority}`}
+          style={{ cursor: phase === 'EXECUTION' ? 'pointer' : 'default' }}
+          title="Open source workspace"
+          onClick={() => phase === 'EXECUTION' && setMode(SOURCE_MODE[e.source] || 'map')}
+        >
           <div className="feed-top">
             <span className="chip chip-muted">{e.source}</span>
             <span className="chip chip-cyan">{e.tag}</span>

@@ -1,61 +1,46 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import StatusBadge from '../StatusBadge.jsx'
+import TerrainCanvas from '../TerrainCanvas.jsx'
 import { photoSegments, photoSummary } from '../../data/mockData.js'
+import { bus } from '../../lib/bus.js'
+import { useWindows } from '../../context/WindowContext.jsx'
 
-// Stylized mock "aerial photo" rendered as SVG — no real imagery.
-function AerialScene({ heatmap }) {
-  return (
-    <svg viewBox="0 0 100 70" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-      <defs>
-        <linearGradient id="terrain" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#141a14" />
-          <stop offset="55%" stopColor="#10150f" />
-          <stop offset="100%" stopColor="#0c1110" />
-        </linearGradient>
-        <radialGradient id="heat" cx="0.35" cy="0.65" r="0.6">
-          <stop offset="0%" stopColor="rgba(255,77,94,0.5)" />
-          <stop offset="35%" stopColor="rgba(255,180,84,0.35)" />
-          <stop offset="70%" stopColor="rgba(61,214,232,0.15)" />
-          <stop offset="100%" stopColor="transparent" />
-        </radialGradient>
-      </defs>
-      <rect width="100" height="70" fill="url(#terrain)" />
-      {/* ridge line */}
-      <path d="M78,0 Q84,20 90,28 T100,44 L100,0 Z" fill="#181f16" opacity="0.9" />
-      <path d="M80,0 Q86,18 92,30" stroke="#232d1e" strokeWidth="0.4" fill="none" />
-      {/* roads */}
-      <path d="M0,50 Q30,46 55,50 T100,46" stroke="#242c30" strokeWidth="2.2" fill="none" />
-      <path d="M0,50 Q30,46 55,50 T100,46" stroke="#39454a" strokeWidth="0.25" strokeDasharray="1.5 1.5" fill="none" />
-      <path d="M30,70 Q32,55 30,42 Q29,30 34,18" stroke="#242c30" strokeWidth="1.6" fill="none" />
-      {/* warehouse + buildings */}
-      <rect x="56" y="19" width="22" height="18" fill="#1c2226" stroke="#2c3840" strokeWidth="0.3" />
-      <rect x="58" y="21" width="8" height="6" fill="#222a2f" />
-      <rect x="68" y="27" width="8" height="8" fill="#20272c" />
-      <rect x="14" y="20" width="7" height="6" fill="#1c2226" stroke="#2c3840" strokeWidth="0.25" />
-      <rect x="23" y="24" width="5" height="5" fill="#1a2024" />
-      {/* vehicles */}
-      <rect x="14" y="58" width="9" height="4.5" rx="0.6" fill="#2a3136" stroke="#3d474d" strokeWidth="0.3" />
-      <rect x="71" y="59" width="7" height="5" rx="0.4" fill="#252c31" stroke="#39454a" strokeWidth="0.3" />
-      {/* personnel dots */}
-      <circle cx="38" cy="65" r="0.9" fill="#3a4449" />
-      <circle cx="40.5" cy="66.5" r="0.9" fill="#3a4449" />
-      <circle cx="42" cy="64" r="0.9" fill="#3a4449" />
-      {/* scrub texture */}
-      {Array.from({ length: 40 }).map((_, i) => (
-        <circle key={i} cx={(i * 37) % 100} cy={(i * 23 + 7) % 70} r={0.5 + (i % 3) * 0.3} fill="#151c14" opacity="0.8" />
-      ))}
-      {heatmap && <rect width="100" height="70" fill="url(#heat)" />}
-    </svg>
-  )
+// Scene features aligned with the SAM-H segmentation boxes.
+const SCENE_FEATURES = [
+  { type: 'warehouse', x: 55, y: 18, w: 24, h: 20 },
+  { type: 'building', x: 14, y: 20, w: 8, h: 8 },
+  { type: 'building', x: 24, y: 26, w: 5, h: 6 },
+  { type: 'truck', x: 12, y: 55, w: 14, h: 11 },
+  { type: 'persons', x: 36, y: 62, w: 8, h: 9 },
+  { type: 'container', x: 70, y: 58, w: 10, h: 8 },
+  { type: 'blob', x: 84, y: 34, w: 9, h: 10 },
+]
+
+const HEAT_OVERLAY = {
+  position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
+  background: `radial-gradient(circle at 19% 60%, rgba(255,77,94,0.45) 0%, rgba(255,180,84,0.3) 12%, transparent 26%),
+    radial-gradient(circle at 40% 66%, rgba(255,180,84,0.4) 0%, transparent 14%),
+    radial-gradient(circle at 67% 28%, rgba(61,214,232,0.22) 0%, transparent 22%),
+    radial-gradient(circle at 88% 39%, rgba(255,77,94,0.35) 0%, transparent 12%)`,
+  mixBlendMode: 'screen',
 }
 
 export default function PhotoIntelView() {
+  const { openProfile } = useWindows()
   const [selected, setSelected] = useState(photoSegments[0])
   const [showMasks, setShowMasks] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
   const [heatmap, setHeatmap] = useState(false)
   const [summary, setSummary] = useState(null)
   const [thinking, setThinking] = useState(false)
+  const [cross, setCross] = useState(null) // {x, y} in % — analyst crosshair
+
+  useEffect(() => bus.on('photo.heatmap', (v) => setHeatmap(v)), [])
+
+  const trackMouse = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setCross({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
+  }
 
   const generateSummary = () => {
     setThinking(true)
@@ -73,9 +58,19 @@ export default function PhotoIntelView() {
           <button className="btn-green" onClick={generateSummary}>Generate Image Summary</button>
         </div>
 
-        <div className="stage scanlines">
-          <AerialScene heatmap={heatmap} />
+        <div className="stage scanlines" onMouseMove={trackMouse} onMouseLeave={() => setCross(null)}>
+          <TerrainCanvas seed={23} variant="photo" features={SCENE_FEATURES} />
+          {heatmap && <div style={HEAT_OVERLAY} />}
           <div className="scan-sweep" />
+          {cross && (
+            <>
+              <div className="crosshair-h" style={{ top: `${cross.y}%` }} />
+              <div className="crosshair-v" style={{ left: `${cross.x}%` }} />
+              <div className="crosshair-readout" style={{ left: `${Math.min(cross.x, 72)}%`, top: `${Math.min(cross.y + 3, 88)}%` }}>
+                QT {Math.round(4400 + cross.x * 1.2)} {Math.round(8800 + cross.y * 1.2)} · GSD 0.31M · EL 412M
+              </div>
+            </>
+          )}
           <div className="stage-label"><span className="rec-dot" />KEYHOLE-9 · FRAME 2231 · SAM-H ACTIVE</div>
           <div className="radar">
             <div className="sweep" />
@@ -93,6 +88,8 @@ export default function PhotoIntelView() {
                 color: seg.color,
               }}
               onClick={() => setSelected(seg)}
+              onDoubleClick={() => openProfile(seg.id)}
+              title="Click: inspect · Double-click: open dossier"
             >
               <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
               {showMasks && <span className="seg-mask" style={{ background: seg.color }} />}
@@ -117,6 +114,9 @@ export default function PhotoIntelView() {
           <div className="kv"><span className="k">Object Type</span><span className="v">{selected.type}</span></div>
           <div className="kv"><span className="k">Confidence</span><span className="v">{(selected.confidence * 100).toFixed(1)}%</span></div>
           <div className="kv"><span className="k">Risk Level</span><span className="v">{selected.risk}</span></div>
+          <button className="btn-green" style={{ marginTop: 5, width: '100%' }} onClick={() => openProfile(selected.id)}>
+            ◈ Open Dossier
+          </button>
         </div>
         <div>
           <div className="mini-title">AI SUMMARY</div>

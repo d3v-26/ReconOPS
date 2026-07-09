@@ -1,6 +1,48 @@
 import { useEffect, useRef, useState } from 'react'
 import StatusBadge from '../StatusBadge.jsx'
 import { audioSegments, transcript, audioMeta } from '../../data/mockData.js'
+import { bus } from '../../lib/bus.js'
+import { useWindows } from '../../context/WindowContext.jsx'
+
+// Scrolling spectrogram strip — procedural, styled after SIGINT waterfall displays.
+function SpectroCanvas({ playing }) {
+  const ref = useRef(null)
+  const raf = useRef(0)
+  const t = useRef(0)
+
+  useEffect(() => {
+    const canvas = ref.current
+    const ctx = canvas.getContext('2d')
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect()
+      if (canvas.width !== Math.floor(rect.width)) { canvas.width = Math.floor(rect.width); canvas.height = Math.floor(rect.height) }
+      const { width: w, height: h } = canvas
+      if (playing && w > 1) {
+        t.current += 0.06
+        // scroll left 1px
+        ctx.drawImage(canvas, 1, 0, w - 1, h, 0, 0, w - 1, h)
+        // new column
+        for (let y = 0; y < h; y += 2) {
+          const f = y / h
+          const v = Math.max(0,
+            Math.sin(f * 14 + t.current * 2.2) * 0.4 +
+            Math.sin(f * 40 - t.current * 3.1) * 0.25 +
+            (f > 0.28 && f < 0.36 ? 0.55 : 0) + // persistent carrier band
+            (Math.sin(t.current * 0.9) > 0.86 && f > 0.6 && f < 0.75 ? 0.7 : 0) + // intermittent burst
+            Math.random() * 0.18 - 0.28)
+          const c = Math.min(1, v)
+          ctx.fillStyle = c > 0.62 ? `rgba(255,180,84,${c})` : c > 0.32 ? `rgba(52,209,123,${c})` : `rgba(20,60,70,${0.25 + c})`
+          ctx.fillRect(w - 1, y, 1, 2)
+        }
+      }
+      raf.current = requestAnimationFrame(draw)
+    }
+    raf.current = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(raf.current)
+  }, [playing])
+
+  return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+}
 
 // Canvas waveform + spectrum, procedurally animated when "playing".
 function WaveCanvas({ playing }) {
@@ -71,6 +113,7 @@ function WaveCanvas({ playing }) {
 }
 
 export default function AudioIntelView() {
+  const { openProfile } = useWindows()
   const [playing, setPlaying] = useState(true)
   const [showWave, setShowWave] = useState(true)
   const [showTranscript, setShowTranscript] = useState(true)
@@ -85,6 +128,15 @@ export default function AudioIntelView() {
     const id = setInterval(() => setCursor((c) => (c + 0.25) % dur), 250)
     return () => clearInterval(id)
   }, [playing, dur])
+
+  // LLM console control
+  useEffect(() => {
+    const offs = [
+      bus.on('audio.translate', (v) => setTranslated(v)),
+      bus.on('audio.play', (v) => setPlaying(v)),
+    ]
+    return () => offs.forEach((off) => off())
+  }, [])
 
   const runAI = (text) => {
     setThinking(true)
@@ -107,13 +159,19 @@ export default function AudioIntelView() {
         </div>
 
         {showWave && (
-          <div className="stage" style={{ minHeight: 170, flex: 'unset', height: 190 }}>
-            <WaveCanvas playing={playing} />
-            <div className="stage-label"><span className="rec-dot" />EARSHOT-A · CH.2 · {playing ? 'LIVE CAPTURE' : 'PAUSED'}</div>
-            <div style={{ position: 'absolute', bottom: 6, right: 10, fontSize: 9, color: 'var(--muted)', zIndex: 6 }}>
-              00:{String(Math.floor(cursor)).padStart(2, '0')} / 00:{dur}
+          <>
+            <div className="stage" style={{ minHeight: 150, flex: 'unset', height: 165 }}>
+              <WaveCanvas playing={playing} />
+              <div className="stage-label"><span className="rec-dot" />EARSHOT-A · CH.2 · {playing ? 'LIVE CAPTURE' : 'PAUSED'}</div>
+              <div style={{ position: 'absolute', bottom: 6, right: 10, fontSize: 9, color: 'var(--muted)', zIndex: 6 }}>
+                00:{String(Math.floor(cursor)).padStart(2, '0')} / 00:{dur}
+              </div>
             </div>
-          </div>
+            <div className="stage" style={{ minHeight: 56, flex: 'unset', height: 62 }}>
+              <SpectroCanvas playing={playing} />
+              <div className="stage-label" style={{ fontSize: 8 }}>SPECTROGRAM · 0–8 KHZ · CARRIER 2.4K {playing ? '· BURSTS FLAGGED' : '· HELD'}</div>
+            </div>
+          </>
         )}
 
         <div>
@@ -157,7 +215,12 @@ export default function AudioIntelView() {
                   color: line.speaker === 'Speaker A' ? 'var(--cyan)'
                     : line.speaker === 'Speaker B' ? 'var(--green)'
                     : line.speaker.startsWith('Unknown') ? 'var(--red)' : 'var(--muted)',
-                }}>{line.speaker}</span>
+                  cursor: line.speaker.startsWith('Speaker') ? 'pointer' : 'default',
+                  textDecoration: line.speaker.startsWith('Speaker') ? 'underline dotted' : 'none',
+                }}
+                  title={line.speaker.startsWith('Speaker') ? 'Open voice profile' : undefined}
+                  onClick={() => line.speaker.startsWith('Speaker') && openProfile(line.speaker)}
+                >{line.speaker}</span>
                 <span className="txt">{translated ? line.translated : line.text}</span>
                 <span className="cf">{(line.conf * 100).toFixed(0)}%</span>
               </div>

@@ -1,49 +1,38 @@
 import { useEffect, useState } from 'react'
 import StatusBadge from '../StatusBadge.jsx'
+import TerrainCanvas from '../TerrainCanvas.jsx'
 import { videoTracks, videoTimeline, videoSummary, videoBriefing } from '../../data/mockData.js'
+import { bus } from '../../lib/bus.js'
+import { useWindows } from '../../context/WindowContext.jsx'
 
-// Animated mock "video frame" — drifting gradient + noise pattern, no real footage.
-function VideoFrame() {
-  return (
-    <svg viewBox="0 0 100 62" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-      <defs>
-        <linearGradient id="vf" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0e1416" />
-          <stop offset="60%" stopColor="#121a14" />
-          <stop offset="100%" stopColor="#0c110e" />
-        </linearGradient>
-      </defs>
-      <rect width="100" height="62" fill="url(#vf)" />
-      <path d="M0,44 Q25,40 50,44 T100,41" stroke="#20282c" strokeWidth="3" fill="none" />
-      <rect x="54" y="16" width="20" height="15" fill="#181f23" stroke="#28323a" strokeWidth="0.3" />
-      <path d="M80,0 Q86,14 92,22 T100,34 L100,0 Z" fill="#151b13" />
-      <rect x="19" y="53" width="10" height="5" rx="0.6" fill="#262e33" />
-      <rect x="59" y="37" width="9" height="4.5" rx="0.6" fill="#2a3238" />
-      <circle cx="42.5" cy="70" r="1" fill="#39434a" />
-      {Array.from({ length: 30 }).map((_, i) => (
-        <circle key={i} cx={(i * 41 + 13) % 100} cy={(i * 17 + 5) % 62} r={0.4 + (i % 3) * 0.25} fill="#141a16" />
-      ))}
-      {/* drifting cloud shadow */}
-      <ellipse cx="30" cy="14" rx="22" ry="7" fill="#0a0e0c" opacity="0.5">
-        <animate attributeName="cx" values="20;80;20" dur="40s" repeatCount="indefinite" />
-      </ellipse>
-    </svg>
-  )
-}
+// Ground truth for the drone frame — matches SAM-H track boxes.
+const FRAME_FEATURES = [
+  { type: 'warehouse', x: 54, y: 16, w: 20, h: 15 },
+  { type: 'vehicle', x: 18, y: 58, w: 15, h: 12 },
+  { type: 'vehicle', x: 58, y: 40, w: 14, h: 11 },
+  { type: 'person', x: 40, y: 66, w: 6, h: 12 },
+  { type: 'person', x: 74, y: 62, w: 6, h: 11 },
+  { type: 'blob', x: 84, y: 24, w: 8, h: 8 },
+  { type: 'animal', x: 8, y: 30, w: 7, h: 6 },
+]
 
 export default function VideoIntelView() {
+  const { openProfile } = useWindows()
   const [selected, setSelected] = useState(videoTracks[1])
   const [showSeg, setShowSeg] = useState(true)
   const [showTracking, setShowTracking] = useState(true)
   const [aiOutput, setAiOutput] = useState(null)
   const [thinking, setThinking] = useState(false)
   const [playT, setPlayT] = useState(0)
+  const [thermal, setThermal] = useState(false)
   const DUR = 80
 
   useEffect(() => {
     const id = setInterval(() => setPlayT((t) => (t + 0.5) % DUR), 400)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => bus.on('video.thermal', (v) => setThermal(v)), [])
 
   const runAI = (text) => {
     setThinking(true)
@@ -59,25 +48,29 @@ export default function VideoIntelView() {
         <div className="view-controls">
           <button className={showSeg ? 'active' : ''} onClick={() => setShowSeg(!showSeg)}>Segmentation</button>
           <button className={showTracking ? 'active' : ''} onClick={() => setShowTracking(!showTracking)}>Tracking</button>
+          <button className={thermal ? 'active btn-amber' : 'btn-amber'} onClick={() => setThermal(!thermal)}>Thermal</button>
           <button onClick={() => runAI(videoSummary)}>Frame Summary</button>
           <button onClick={keyEvents}>Extract Key Events</button>
           <button className="btn-amber" onClick={() => runAI(videoBriefing)}>Mission Briefing</button>
         </div>
 
-        <div className="stage scanlines">
-          <VideoFrame />
+        <div className={`stage scanlines ${thermal ? 'thermal' : ''}`}>
+          <TerrainCanvas seed={41} variant="video" features={FRAME_FEATURES} />
+          {thermal && <div className="thermal-tint" />}
           <div className="scan-sweep" />
-          <div className="stage-label"><span className="rec-dot" />SPECTER-1 · LIVE FEED · 30 FPS · SAM-H TRACKING</div>
+          <div className="stage-label"><span className="rec-dot" />SPECTER-1 · LIVE FEED · 30 FPS · {thermal ? 'THERMAL / WHITE-HOT' : 'EO / VISIBLE'} · SAM-H TRACKING</div>
           <div style={{ position: 'absolute', top: 8, right: 12, fontSize: 9, color: 'var(--green)', zIndex: 6, fontVariantNumeric: 'tabular-nums' }}>
             T+{String(Math.floor(playT)).padStart(2, '0')}s
           </div>
 
-          {showTracking && videoTracks.map((tr) => (
+          {showTracking && videoTracks.map((tr, i) => (
             <div
               key={tr.id}
-              className={`seg-box active-seg ${selected?.id === tr.id ? 'selected' : ''}`}
+              className={`seg-box active-seg drift-${i % 3} ${selected?.id === tr.id ? 'selected' : ''}`}
               style={{ left: `${tr.box.x}%`, top: `${tr.box.y}%`, width: `${tr.box.w}%`, height: `${tr.box.h}%`, color: tr.color }}
               onClick={() => setSelected(tr)}
+              onDoubleClick={() => openProfile(tr.id)}
+              title="Click: inspect · Double-click: open dossier"
             >
               <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
               {showSeg && <span className="seg-mask" style={{ background: tr.color }} />}
@@ -114,6 +107,9 @@ export default function VideoIntelView() {
           <div className="kv"><span className="k">Direction</span><span className="v">{selected.direction}</span></div>
           <div className="kv"><span className="k">Confidence</span><span className="v">{(selected.confidence * 100).toFixed(1)}%</span></div>
           <div className="kv"><span className="k">Last Seen</span><span className="v">{selected.lastSeen}</span></div>
+          <button className="btn-green" style={{ marginTop: 5, width: '100%' }} onClick={() => openProfile(selected.id)}>
+            ◈ Open Dossier
+          </button>
         </div>
         <div>
           <div className="mini-title">ACTIVE TRACKS ({videoTracks.length})</div>
@@ -123,6 +119,7 @@ export default function VideoIntelView() {
               className={`track-card ${selected.id === tr.id ? 'selected' : ''}`}
               style={{ borderLeftColor: tr.color }}
               onClick={() => setSelected(tr)}
+              onDoubleClick={() => openProfile(tr.id)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: tr.color }}>{tr.id} · {tr.type}</span>

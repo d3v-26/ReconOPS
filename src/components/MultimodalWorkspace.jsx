@@ -1,6 +1,6 @@
-import { useState } from 'react'
 import HudCard from './HudCard.jsx'
-import { DATA_MODES } from '../data/mockData.js'
+import { DATA_MODES, THEATERS } from '../data/mockData.js'
+import { useOperation } from '../context/OperationContext.jsx'
 import PhotoIntelView from './views/PhotoIntelView.jsx'
 import AudioIntelView from './views/AudioIntelView.jsx'
 import VideoIntelView from './views/VideoIntelView.jsx'
@@ -19,14 +19,15 @@ const VIEWS = {
   docs: DocumentIntelView,
 }
 
-export default function MultimodalWorkspace({ environment }) {
-  const [mode, setMode] = useState('map')
+export default function MultimodalWorkspace() {
+  const { mode, setMode, theater } = useOperation()
   const View = VIEWS[mode]
 
   return (
     <HudCard
+      panelId="workspace"
       className="workspace"
-      title={`Multimodal Workspace · ${environment.toUpperCase()}`}
+      title={`Multimodal Workspace · ${theater.toUpperCase()} — ${THEATERS[theater].desc}`}
       right={<span className="chip chip-green pulse"><span className="dot" />SAM-H + LLM FUSION</span>}
       noPad
     >

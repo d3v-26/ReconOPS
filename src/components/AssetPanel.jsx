@@ -1,7 +1,8 @@
-import { useState } from 'react'
 import HudCard from './HudCard.jsx'
 import StatusBadge from './StatusBadge.jsx'
+import AssetIcon, { TYPE_ICON } from './AssetIcon.jsx'
 import { assets } from '../data/mockData.js'
+import { useWindows } from '../context/WindowContext.jsx'
 
 function meterColor(v) {
   if (v > 75) return 'var(--green)'
@@ -10,17 +11,23 @@ function meterColor(v) {
 }
 
 export default function AssetPanel() {
-  const [selected, setSelected] = useState(null)
+  const { openProfile, floats } = useWindows()
+  const openIds = new Set(floats.map((f) => f.profileId))
 
   return (
     <HudCard
+      panelId="assets"
       title={`Asset Coordination · ${assets.length}`}
       right={<span className="chip chip-green"><span className="dot" />{assets.filter((a) => a.status === 'Active').length} ACTIVE</span>}
-      style={{ flex: 3, minHeight: 240 }}
+      style={{ flex: 3, minHeight: 220 }}
     >
       {assets.map((a) => (
-        <div key={a.id} className={`asset-row ${selected === a.id ? 'selected' : ''}`}
-          onClick={() => setSelected(selected === a.id ? null : a.id)}>
+        <div key={a.id} className={`asset-row with-icon ${openIds.has(a.id) ? 'selected' : ''}`}
+          title="Open dossier"
+          onClick={() => openProfile(a.id)}>
+          <div className="asset-ico">
+            <AssetIcon kind={TYPE_ICON[a.type] || 'structure'} size={22} color={a.status === 'Offline' ? 'var(--muted)' : 'var(--cyan)'} />
+          </div>
           <div>
             <div className="asset-name">{a.id} · {a.name}</div>
             <div className="asset-type">{a.type} → {a.dataType}</div>
@@ -32,12 +39,6 @@ export default function AssetPanel() {
             <span className="lbl">SIG</span>
             <div className="meter"><i style={{ width: `${a.signal}%`, background: meterColor(a.signal) }} /></div>
           </div>
-          {selected === a.id && (
-            <div className="threat-detail" style={{ gridColumn: '1 / -1' }}>
-              <b>TASK:</b> {a.task}<br />
-              <b>LAST UPDATE:</b> T-{a.lastUpdate} · <b>HEALTH:</b> {a.health}% · <b>SIGNAL:</b> {a.signal}%
-            </div>
-          )}
         </div>
       ))}
     </HudCard>

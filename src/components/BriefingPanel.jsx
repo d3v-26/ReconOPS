@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import HudCard from './HudCard.jsx'
 import { briefings } from '../data/mockData.js'
+import { bus } from '../lib/bus.js'
 
 export default function BriefingPanel() {
   const [idx, setIdx] = useState(0)
@@ -14,8 +15,12 @@ export default function BriefingPanel() {
     setTimeout(() => { setIdx((i) => i + 1); setThinking(false) }, 1400)
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => bus.on('briefing.generate', generate), [])
+
   return (
     <HudCard
+      panelId="briefing"
       title="Operator Briefing"
       right={<button className="btn-amber" onClick={generate}>Generate Briefing</button>}
       style={{ flex: 2, minHeight: 200 }}

@@ -4,7 +4,7 @@ import { diagnostics, diagStats } from '../data/mockData.js'
 
 export default function DiagnosticsPanel() {
   return (
-    <HudCard title="System Diagnostics" right={<span className="chip chip-green pulse"><span className="dot" />NOMINAL</span>} style={{ flex: 2, minHeight: 200 }}>
+    <HudCard panelId="diagnostics" title="System Diagnostics" right={<span className="chip chip-green pulse"><span className="dot" />NOMINAL</span>} style={{ flex: 2, minHeight: 200 }}>
       {diagnostics.map((d) => (
         <div key={d.name} className="diag-row">
           <span className="name">{d.name}</span>
