@@ -1,9 +1,9 @@
-import { bus } from './bus.js'
 import { evidenceSources, anomalies, EVIDENCE_REQUIRED } from '../data/mockData.js'
+import { byId } from '../data/entities.js'
 
 // The single answer to "what should I do now?" — derived from operation state.
-// Shown as the primary call-to-action in the mission rail and answered by the
-// console's "what's next?" command, so the operator never has to guess.
+// `focus` is the entity that gets the objective marker on the map; `run` is what
+// "do it" in the command bar executes. Nothing else in the UI decides the next move.
 export function getNextStep(ops) {
   const { phase } = ops
 
@@ -11,84 +11,53 @@ export function getNextStep(ops) {
     if (ops.readiness < 100) {
       return {
         title: 'Bring the sensor network online',
-        detail: `${ops.linkedCount} of 12 assets are on the command net. Data from unlinked assets is quarantined, so the operation can't start until every link is up.`,
-        cta: 'Link all assets',
-        run: () => ops.linkAll(),
+        detail: `${ops.linkedCount} of 11 assets linked. Click a dimmed asset to link it, or say "link all".`,
+        run: () => ops.linkAll(), say: 'link all assets',
       }
     }
-    return {
-      title: 'Network ready — move to planning',
-      detail: 'All 12 assets are linked and calibrated. Next, decide how they will be tasked against Warehouse S-3.',
-      cta: 'Go to planning',
-      run: () => ops.advance(),
-    }
+    return { title: 'Network ready', detail: 'Every asset is on the net. Move to planning.', run: () => ops.advance(), say: 'do it' }
   }
 
   if (phase === 'PLANNING') {
     if (!ops.planProposed) {
       return {
         title: 'Draft a collection plan',
-        detail: 'Have the AI decompose the objective into taskings for each asset. Click the map to add your own targets first if needed.',
-        cta: 'Generate AI plan',
-        run: () => bus.emit('planning.request'),
+        detail: 'Click Warehouse S-3 (or say "generate plan") to have the AI task each asset.',
+        focus: 'S-3', run: () => { ops.select('S-3'); ops.proposePlan() }, say: 'generate plan',
       }
     }
     if (!ops.planApproved) {
-      return {
-        title: 'Review and approve the plan',
-        detail: 'Check the proposed taskings and contingencies. Approval locks taskings and pushes them to every asset.',
-        cta: 'Approve plan',
-        run: () => ops.setPlanApproved(true),
-      }
+      return { title: 'Approve the plan', detail: 'Tasking lines are on the map. Approve to lock them in.', focus: 'S-3', run: () => ops.approvePlan(), say: 'approve plan' }
     }
-    return {
-      title: 'Plan locked — start the operation',
-      detail: 'Assets have their taskings. Starting the operation opens live collection on Warehouse S-3.',
-      cta: 'Start operation',
-      run: () => ops.advance(),
-    }
+    return { title: 'Start the operation', detail: 'Assets have their taskings.', run: () => ops.advance(), say: 'do it' }
   }
 
   if (phase === 'EXECUTION') {
-    const missing = evidenceSources.filter((s) => !ops.evidence.includes(s.id))
     if (ops.evidence.length < EVIDENCE_REQUIRED) {
-      const src = missing[0]
+      const src = evidenceSources.find((s) => !ops.evidence.includes(s.id))
+      const e = byId[src.from]
       return {
-        title: `Corroborate with ${src.label.toLowerCase()}`,
-        detail: `${ops.evidence.length}/${EVIDENCE_REQUIRED} independent sources logged. Review this source and log it if it shows staging at S-3.`,
-        cta: `Open ${src.label.toLowerCase()}`,
-        run: () => ops.setMode(src.id),
+        title: `Check ${e.name}`,
+        detail: `${ops.evidence.length}/${EVIDENCE_REQUIRED} sources logged. Open its feed and log what it shows about S-3.`,
+        focus: e.id, run: () => ops.select(e.id), say: `open ${e.name.toLowerCase()}`,
       }
     }
     if (ops.criticalOpen.length) {
       const a = anomalies.find((x) => x.id === ops.criticalOpen[0])
+      const e = byId[a.entity]
       return {
-        title: `Resolve critical alert ${a.id}`,
-        detail: `${a.title}. Approve the recommended action or dismiss it — escalation stays off the table.`,
-        cta: 'Review alert',
-        run: () => ops.focusAlert(a.id),
+        title: `Resolve ${e.name}`,
+        detail: `${a.title}. Approve the recommended action or dismiss it — no escalation.`,
+        focus: e.id, run: () => ops.select(e.id), say: `open ${e.name.toLowerCase()}`,
       }
     }
     return {
-      title: 'Objective answered — close the operation',
-      detail: `Confidence ${Math.round(ops.confidence * 100)}% from ${ops.evidence.length} independent sources, no open critical alerts.`,
-      cta: 'End operation & debrief',
-      run: () => ops.advance(),
+      title: 'Question answered — close out',
+      detail: `${Math.round(ops.confidence * 100)}% confidence from ${ops.evidence.length} sources, no open critical alerts.`,
+      run: () => ops.advance(), say: 'end operation',
     }
   }
 
-  if (!ops.reportFiled) {
-    return {
-      title: 'File the after-action report',
-      detail: 'Generate the AAR and export it. It becomes the template for the next operation.',
-      cta: 'Generate report',
-      run: () => bus.emit('debrief.generate'),
-    }
-  }
-  return {
-    title: 'Operation complete',
-    detail: 'Report filed. Every success criterion has been met.',
-    cta: null,
-    run: null,
-  }
+  if (!ops.reportFiled) return { title: 'File the report', detail: 'Generate the after-action report.', run: () => ops.setReportFiled(true), say: 'generate report' }
+  return { title: 'Operation complete', detail: 'Every objective met.', say: null }
 }

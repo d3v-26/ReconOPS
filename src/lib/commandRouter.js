@@ -1,178 +1,141 @@
-import { bus } from './bus.js'
-import { consoleResponses, consoleFallback, DATA_MODES, mission, evidenceSources, briefings } from '../data/mockData.js'
+import { consoleResponses, consoleFallback, evidenceSources, anomalies } from '../data/mockData.js'
+import { findEntity, findEntities, byId } from '../data/entities.js'
 import { getNextStep } from './nextStep.js'
+import { exportReport } from './report.js'
 
-// Maps a natural-language command to a real UI action + operator-facing response.
+// Maps a natural-language order to a real UI action + a spoken-style reply.
 // In a live deployment this router is replaced by an LLM with tool use
-// (each handler below becomes a tool the model can call).
-
-const MODE_WORDS = {
-  map: 'map', photo: 'photo', imagery: 'photo', image: 'photo', reports: 'docs', report: 'docs', scan: '3d', audio: 'audio', sound: 'audio',
-  video: 'video', feed: 'video', '3d': '3d', 'three-d': '3d', scene: '3d',
-  coordinates: 'coords', coords: 'coords', coordinate: 'coords',
-  docs: 'docs', documents: 'docs', document: 'docs', reports: 'docs',
-}
-
-// Deferred emit: mode switches unmount/remount views, so give the target view
-// a beat to mount and register its bus listeners before the event fires.
-const emitSoon = (event, payload) => setTimeout(() => bus.emit(event, payload), 180)
-
+// (each branch below becomes a tool the model can call).
 export function routeCommand(raw, ops) {
-  const cmd = raw.toLowerCase()
-  const has = (...words) => words.every((w) => cmd.includes(w))
+  const cmd = raw.toLowerCase().trim()
   const any = (...words) => words.some((w) => cmd.includes(w))
+  const sel = ops.selected?.type === 'entity' ? byId[ops.selected.id] : null
+  const named = findEntity(cmd)
+  const target = named || sel
 
   // ── guidance ──
-  if (any("what's next", 'what next', 'next step', 'what should i do', 'help me')) {
-    const step = getNextStep(ops)
-    return { text: `NEXT STEP — ${step.title}. ${step.detail}${step.cta ? ` Say "do it" or press "${step.cta}".` : ''}` }
+  if (any("what's next", 'what next', 'next step', 'what should i do', 'help')) {
+    const s = getNextStep(ops)
+    return `${s.title}. ${s.detail}`
   }
-  if (any('do it', 'do next', 'go ahead', 'proceed')) {
-    const step = getNextStep(ops)
-    if (!step.run) return { text: 'Nothing left to do — operation complete.' }
-    step.run()
-    return { text: `EXECUTING — ${step.cta}.` }
-  }
-  if (any('log evidence', 'mark as evidence', 'add evidence')) {
-    if (ops.phase !== 'EXECUTION') return { text: 'Evidence is logged during EXECUTION.' }
-    const src = evidenceSources.find((e) => e.id === ops.mode)
-    if (!src) return { text: `The ${ops.mode} view is not an evidence source. Open imagery, video, audio or reports first.` }
-    ops.logEvidence(src.id)
-    return { text: `EVIDENCE LOGGED — ${src.label}: ${src.finding}` }
-  }
-  if (any('start the operation', 'start operation', 'begin operation')) {
-    const r = ops.goTo('EXECUTION')
-    return { text: r.ok ? 'OPERATION LIVE — Collection on Warehouse S-3 has begun.' : `BLOCKED — ${r.reason}` }
+  if (any('do it', 'go ahead', 'proceed', 'carry on')) {
+    const s = getNextStep(ops)
+    if (!s.run) return 'Nothing left to do — operation complete.'
+    s.run()
+    return `On it — ${s.title.toLowerCase()}.`
   }
 
-  // ── lifecycle control ──
-  if (any('link all', 'establish all', 'bring assets online')) {
-    if (ops.phase !== 'STANDUP') return { text: 'Assets already linked — link procedure only runs during STAND-UP.' }
+  // ── lifecycle ──
+  if (any('link all', 'bring assets online', 'bring everything online', 'link everything')) {
     ops.linkAll()
-    return { text: 'EXECUTING — Establishing comms links to all 12 assets. Handshakes cascading; readiness meter live in the workspace.' }
+    return 'Linking all 11 assets. Watch them light up on the map.'
   }
-  if (any('advance', 'next phase')) {
-    const before = ops.phase
-    if (ops.gate) return { text: `BLOCKED BY GATE — ${ops.gate}` }
-    ops.advance()
-    return { text: `PHASE TRANSITION — Advancing from ${before}. Workspace reconfiguring.` }
+  if (cmd.startsWith('link') && target) {
+    if (!target.asset) return `${target.name} isn't one of ours — nothing to link.`
+    ops.establishLink(target.id); ops.select(target.id)
+    return `Linking ${target.name}.`
   }
-  if (any('end operation', 'end the operation', 'wrap up', 'go to debrief')) {
+  if (any('generate plan', 'draft plan', 'make a plan', 'plan it', 'propose plan')) {
+    if (ops.phase !== 'PLANNING') return ops.phase === 'STANDUP' ? 'Link the network first — then we plan.' : 'The plan is already locked.'
+    ops.select('S-3'); ops.proposePlan()
+    return 'Plan drafted. Tasking lines are on the map — say "approve plan" to lock them in.'
+  }
+  if (any('approve plan', 'approve the plan', 'lock the plan')) {
+    if (ops.phase !== 'PLANNING') return 'Plan approval happens during planning.'
+    ops.approvePlan()
+    return 'Plan approved. Say "do it" to start the operation.'
+  }
+  if (any('start operation', 'start the operation', 'go live', 'begin')) {
+    const r = ops.goTo('EXECUTION')
+    return r.ok ? 'Operation live. Collection on Warehouse S-3 has started.' : `Not yet — ${r.reason}`
+  }
+  if (any('end operation', 'end the operation', 'wrap up', 'debrief', 'close out')) {
     const r = ops.goTo('DEBRIEF')
-    return { text: r.ok ? 'OPERATION ENDING — Transitioning to DEBRIEF. Archives sealing, AAR synthesis available.' : `BLOCKED — ${r.reason}` }
+    return r.ok ? 'Closing the operation. After-action report is up.' : `Not yet — ${r.reason}`
   }
-  for (const [names, id] of [
-    [['stand-up', 'standup', 'stand up'], 'STANDUP'],
-    [['planning phase', 'go to planning', 'back to planning', 'to planning'], 'PLANNING'],
-    [['execution phase', 'go to execution', 'return to execution', 'to execution', 'resume operation'], 'EXECUTION'],
-  ]) {
-    if (names.some((n) => cmd.includes(n))) {
-      const r = ops.goTo(id)
-      return { text: r.ok ? `PHASE TRANSITION — Moving to ${id}.` : `BLOCKED — ${r.reason}` }
-    }
+  if (any('generate report', 'file report', 'write the report', 'file the report')) {
+    if (ops.phase !== 'DEBRIEF') return 'The report is filed at debrief.'
+    ops.setReportFiled(true)
+    return 'After-action report generated.'
   }
-  if (any('approve plan', 'approve the plan', 'confirm plan')) {
-    if (ops.phase !== 'PLANNING') return { text: 'Plan approval only available during PLANNING phase.' }
-    ops.setPlanApproved(true)
-    return { text: 'PLAN APPROVED — Taskings locked and pushed to all assets. EXECUTION gate is now open.' }
-  }
-  if (any('request ai plan', 'generate plan', 'propose plan', 'draft plan')) {
-    if (ops.phase !== 'PLANNING') return { text: 'Plan synthesis runs in the PLANNING workspace. Say "go to planning" first.' }
-    bus.emit('planning.request')
-    return { text: 'PLAN SYNTHESIS — LLM decomposing objective into taskings. Proposal rendering in the planning workspace.' }
-  }
-  if (any('approve all decision', 'approve decisions', 'clear decision queue')) {
-    const n = ops.approveAllDecisions()
-    return { text: `DECISIONS APPROVED — ${n} pending operator decisions approved: ${mission.decisionQueue.map((d) => d.id).join(', ')}. Taskings dispatched.` }
+  if (any('export', 'download report')) {
+    if (!ops.reportFiled) return 'Generate the report first.'
+    exportReport(ops)
+    return 'Report exported as Markdown.'
   }
 
-  // ── workspace mode ──
-  if (any('switch', 'open', 'show', 'go to', 'view')) {
-    for (const [word, modeId] of Object.entries(MODE_WORDS)) {
-      if (cmd.includes(word)) {
-        if (ops.phase !== 'EXECUTION') {
-          return { text: `Workspace modes are live during EXECUTION. Currently in ${ops.phase}.` }
-        }
-        ops.setMode(modeId)
-        const label = DATA_MODES.find((m) => m.id === modeId)?.label
-        // mode-specific extras
-        if (modeId === 'video' && any('thermal', 'flir', 'ir')) emitSoon('video.thermal', true)
-        if (modeId === 'photo' && cmd.includes('heatmap')) emitSoon('photo.heatmap', true)
-        return { text: `WORKSPACE — ${label} intelligence mode active.` }
-      }
-    }
+  // ── sensor controls ──
+  if (any('thermal off', 'normal view', 'visible', 'daylight')) { ops.setThermal(false); return 'Feeds back to visible spectrum.' }
+  if (any('thermal', 'infrared', 'flir', 'heat')) {
+    ops.setThermal(true)
+    if (named) ops.select(named.id)
+    return `Thermal on${named ? ` — ${named.name}` : ''}. Hot engines and people stand out.`
   }
-
-  // ── media actions ──
   if (any('translate')) {
-    ops.setMode('audio')
-    emitSoon('audio.translate', true)
-    return { text: 'TRANSLATION LAYER — Transcript translated from Foreign Language A (detection 0.86), 8 lines, mean confidence 0.87. Audio workspace showing translated text.' }
+    ops.setTranslated(true); ops.select('AS-02')
+    return 'EARSHOT-A transcript translated from Foreign Language A (0.86).'
   }
-  if (any('original transcript', 'untranslate')) {
-    bus.emit('audio.translate', false)
-    return { text: 'Transcript reverted to original language.' }
+  if (any('original', 'untranslate')) { ops.setTranslated(false); return 'Transcript back in the original language.' }
+
+  // ── evidence & alerts ──
+  if (any('log evidence', 'log it', 'log this', 'mark as evidence', 'add evidence')) {
+    if (ops.phase !== 'EXECUTION') return 'Evidence is logged once the operation is live.'
+    const ev = target?.evidence && evidenceSources.find((s) => s.id === target.evidence)
+    if (!ev) return `${target ? target.name : 'Nothing selected'} doesn't carry evidence. Sources: KEYHOLE-9, SPECTER-1, EARSHOT-A, SSG REYES.`
+    if (!ops.isLinked(target.id)) return `${target.name} isn't linked.`
+    ops.select(target.id)
+    return ops.logEvidence(ev.id) ? `Logged — ${ev.finding}` : `${ev.label} is already logged.`
   }
-  if (has('play') && any('audio', 'clip', 'recording')) {
-    ops.setMode('audio'); emitSoon('audio.play', true)
-    return { text: 'AUDIO — Playback resumed on EARSHOT-A ch.2. Waveform live.' }
+  if (any('show alerts', 'alerts', 'threats', 'what is open')) {
+    const open = anomalies.filter((a) => ops.statusOf(a.id) === 'Open')
+    if (ops.phase !== 'EXECUTION' || !open.length) return 'No open alerts.'
+    ops.select(open[0].entity)
+    return `${open.length} open: ${open.map((a) => `${byId[a.entity].name} (${a.severity})`).join(', ')}. Showing ${byId[open[0].entity].name}.`
   }
-  if (has('pause') || has('stop', 'audio')) {
-    bus.emit('audio.play', false)
-    return { text: 'AUDIO — Playback paused.' }
-  }
-  if (any('thermal', 'flir', 'infrared')) {
-    ops.setMode('video'); emitSoon('video.thermal', true)
-    return { text: 'VIDEO — Thermal rendering enabled on SPECTER-1 feed. Hot signatures amplified.' }
-  }
-  if (any('normal video', 'visible spectrum', 'thermal off')) {
-    bus.emit('video.thermal', false)
-    return { text: 'VIDEO — Reverted to visible-spectrum rendering.' }
-  }
-  if (any('heatmap')) {
-    ops.setMode('photo'); emitSoon('photo.heatmap', true)
-    return { text: 'PHOTO — Confidence heatmap overlay enabled on frame 2231.' }
-  }
-  if (any('generate briefing', 'operator briefing', 'brief me')) {
-    const b = briefings[0]
-    return { text: `BRIEFING — ${b.situation} RECOMMENDED: ${b.action}` }
+  if (cmd.startsWith('approve') || cmd.startsWith('dismiss')) {
+    const a = target && ops.alertOf(target.id)
+    if (!a || ops.phase !== 'EXECUTION') return 'Select an alerted contact first — try "show alerts".'
+    if (ops.statusOf(a.id) !== 'Open') return `${a.id} is already ${ops.statusOf(a.id).toLowerCase()}.`
+    const verdict = cmd.startsWith('approve') ? 'Approved' : 'Dismissed'
+    ops.resolveAlert(a.id, verdict)
+    return verdict === 'Approved' ? a.approveNote : a.dismissNote
   }
 
-  // ── filters ──
-  if (any('filter', 'only show', 'show only', 'show all')) {
-    for (const sev of ['Critical', 'High', 'Medium', 'Low']) {
-      if (cmd.includes(sev.toLowerCase()) && any('anomal', 'threat')) {
-        ops.setThreatFilter(sev)
-        return { text: `THREAT PANEL — Filtered to ${sev.toUpperCase()} severity.` }
-      }
-    }
-    if (any('anomal', 'threat') && cmd.includes('all')) {
-      ops.setThreatFilter('All')
-      return { text: 'THREAT PANEL — Filter cleared, showing all severities.' }
-    }
-    for (const media of ['Photo', 'Audio', 'Video', 'Map', '3D', 'Document', 'Sensor']) {
-      if (cmd.includes(media.toLowerCase()) && any('feed', 'events', 'intel')) {
-        ops.setFeedFilters({ prio: 'All', media })
-        return { text: `INTEL FEED — Filtered to ${media.toUpperCase()} events.` }
-      }
-    }
+  // ── movement & control ──
+  if (any('release', 'let go', 'stop driving')) {
+    if (!ops.controlled) return 'Not controlling anything.'
+    ops.releaseControl()
+    return 'Control released.'
   }
-  if (any('review all anomalies', 'mark anomalies reviewed')) {
-    bus.emit('threats.reviewAll')
-    return { text: 'THREAT PANEL — All open anomalies marked IN REVIEW and assigned to operator queue.' }
+  if (any('take control', 'control', 'drive') && target?.vehicle && !any(' to ')) {
+    if (!target.vehicle.remote) return `${target.name} is a ${target.vehicle.make} ${target.vehicle.model} — not remote-controllable.`
+    if (!ops.isLinked(target.id)) return `${target.name} isn't linked.`
+    ops.takeControl(target.id)
+    return `You have ${target.name} via ${byId[target.vehicle.remote.by].name}'s tablet. Click the map to drive.`
   }
-
-  // ── status queries ──
-  if (any('comms status', 'who is on net', 'net status')) {
-    return { text: `COMMS NET — ${ops.linkedCount}/12 stations linked. Readiness ${ops.readiness}%. ${ops.readiness === 100 ? 'All nets green.' : 'Link procedure incomplete.'}` }
-  }
-  if (any('readiness', 'stand-up status', 'onboarding status')) {
-    return { text: `READINESS ${ops.readiness}% — ${ops.linkedCount}/12 assets on encrypted net. ${ops.gate ? `Gate: ${ops.gate}` : 'All gates clear.'}` }
+  if (any('send', 'move', 'drive', 'fly', 'go to', 'reposition')) {
+    const [who, where] = findEntities(cmd)
+    const mover = who && who.move ? who : sel?.move ? sel : null
+    if (!mover) return 'Who should move? Try "send specter 2 to the ridge".'
+    if (mover.side !== 'friendly') return `${mover.name} isn't ours to move.`
+    if (!ops.isLinked(mover.id)) return `${mover.name} isn't linked.`
+    const spot = ops.selected?.type === 'spot' ? ops.selected : null
+    const dest = where && where.id !== mover.id ? ops.pos[where.id] : any('here', 'there') && spot ? spot : null
+    if (!dest) return `Where to? Name a place ("…to the checkpoint") or click a spot and say "send ${mover.name.toLowerCase()} here".`
+    if (mover.vehicle?.remote) ops.takeControl(mover.id)
+    ops.moveEntity(mover.id, dest)
+    ops.say(mover.name, `Moving to ${where ? where.name : 'marked spot'}.`)
+    return `${mover.name} moving to ${where ? where.name : 'the marked spot'}.`
   }
 
-  // ── canned intel responses (kept from v1) ──
+  // ── selection ──
+  if (any('close', 'deselect', 'clear')) { ops.select(null); return 'Cleared.' }
+  if (named) {
+    ops.select(named.id)
+    const a = ops.alertOf(named.id)
+    return `${named.name} — ${named.status}.${a && ops.statusOf(a.id) === 'Open' && ops.phase === 'EXECUTION' ? ` ${a.severity} alert: ${a.recommended}` : ''}`
+  }
+
   const hit = consoleResponses.find((r) => r.match.some((m) => cmd.includes(m)))
-  if (hit) return { text: hit.response }
-
-  return { text: consoleFallback }
+  return hit ? hit.response : consoleFallback
 }
