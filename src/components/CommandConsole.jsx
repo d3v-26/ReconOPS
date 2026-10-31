@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react'
-import HudCard from './HudCard.jsx'
+import { Sparkles, ChevronUp, ChevronDown, CornerDownLeft, Loader2 } from 'lucide-react'
 import { useOperation } from '../context/OperationContext.jsx'
 import { routeCommand } from '../lib/commandRouter.js'
 import { consoleSuggestions } from '../data/mockData.js'
 
-const BOOT = [
-  { type: 'sys', text: 'GHOST COMMAND LLM CONSOLE v0.2 — PREVIEW MODE. Natural-language control enabled: workspace modes, theater, phases, filters, media actions, briefings.' },
-]
+const BOOT = [{ type: 'sys', text: 'Ask anything or give an order in plain language — e.g. "what\'s next?", "open video thermal", "approve plan".' }]
 
+// AI assistant bar: natural language drives the whole app (modes, phases, filters, media actions).
 export default function CommandConsole() {
   const ops = useOperation()
   const [lines, setLines] = useState(BOOT)
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const logRef = useRef(null)
 
   const scrollDown = () => requestAnimationFrame(() => {
@@ -30,43 +30,38 @@ export default function CommandConsole() {
       setLines((l) => [...l, { type: 'resp', text }])
       setThinking(false)
       scrollDown()
-    }, 700 + Math.random() * 600)
+    }, 500 + Math.random() * 400)
   }
 
   const suggestions = consoleSuggestions[ops.phase] || []
+  const shown = expanded ? lines : lines.slice(-2)
 
   return (
-    <HudCard
-      panelId="console"
-      title="LLM Command Console"
-      right={thinking
-        ? <span className="thinking">REASONING <i /><i /><i /></span>
-        : <span className="chip chip-green"><span className="dot" />CONTROL LINK ACTIVE</span>}
-      noPad
-      style={{ flexShrink: 0 }}
-    >
-      <div className="console-log" ref={logRef}>
-        {lines.map((l, i) => (
-          <div key={i} className={`console-line ${l.type}`}>{l.text}</div>
+    <section className={`assistant ${expanded ? 'expanded' : ''}`}>
+      <div className="assistant-log" ref={logRef}>
+        {shown.map((l, i) => (
+          <div key={i} className={`a-line ${l.type}`}>{l.type === 'cmd' ? <b>You</b> : l.type === 'resp' ? <b>AI</b> : null}{l.text}</div>
         ))}
-        {thinking && <div className="console-line sys">LLM parsing command… resolving intent → tool call…</div>}
+        {thinking && <div className="a-line sys"><Loader2 size={12} className="spin" /> Resolving intent…</div>}
       </div>
-      <div className="console-suggest">
-        {suggestions.map((s) => (
-          <button key={s} onClick={() => run(s)}>▸ {s}</button>
-        ))}
-      </div>
-      <div className="console-input-row">
-        <span className="console-prompt">▸</span>
+      <div className="assistant-row">
+        <Sparkles size={16} className="assistant-ico" />
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && run(input.trim())}
-          placeholder="Command the system in natural language — modes, theaters, phases, filters, actions…"
+          placeholder="Ask the AI or give an order…"
           spellCheck={false}
+          aria-label="Command"
         />
-        <button className="btn-green" onClick={() => run(input.trim())}>Execute</button>
+        <div className="chips">
+          {suggestions.slice(0, 4).map((s) => <button key={s} className="chip-btn" onClick={() => run(s)}>{s}</button>)}
+        </div>
+        <button className="btn icon-btn" onClick={() => run(input.trim())} aria-label="Send"><CornerDownLeft size={14} /></button>
+        <button className="btn icon-btn" onClick={() => { setExpanded(!expanded); scrollDown() }} aria-label={expanded ? 'Collapse log' : 'Expand log'}>
+          {expanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
       </div>
-    </HudCard>
+    </section>
   )
 }

@@ -1,12 +1,13 @@
 import { bus } from './bus.js'
-import { consoleResponses, consoleFallback, THEATERS, DATA_MODES, mission } from '../data/mockData.js'
+import { consoleResponses, consoleFallback, DATA_MODES, mission, evidenceSources, briefings } from '../data/mockData.js'
+import { getNextStep } from './nextStep.js'
 
 // Maps a natural-language command to a real UI action + operator-facing response.
 // In a live deployment this router is replaced by an LLM with tool use
 // (each handler below becomes a tool the model can call).
 
 const MODE_WORDS = {
-  map: 'map', photo: 'photo', image: 'photo', audio: 'audio', sound: 'audio',
+  map: 'map', photo: 'photo', imagery: 'photo', image: 'photo', reports: 'docs', report: 'docs', scan: '3d', audio: 'audio', sound: 'audio',
   video: 'video', feed: 'video', '3d': '3d', 'three-d': '3d', scene: '3d',
   coordinates: 'coords', coords: 'coords', coordinate: 'coords',
   docs: 'docs', documents: 'docs', document: 'docs', reports: 'docs',
@@ -21,13 +22,36 @@ export function routeCommand(raw, ops) {
   const has = (...words) => words.every((w) => cmd.includes(w))
   const any = (...words) => words.some((w) => cmd.includes(w))
 
+  // ── guidance ──
+  if (any("what's next", 'what next', 'next step', 'what should i do', 'help me')) {
+    const step = getNextStep(ops)
+    return { text: `NEXT STEP — ${step.title}. ${step.detail}${step.cta ? ` Say "do it" or press "${step.cta}".` : ''}` }
+  }
+  if (any('do it', 'do next', 'go ahead', 'proceed')) {
+    const step = getNextStep(ops)
+    if (!step.run) return { text: 'Nothing left to do — operation complete.' }
+    step.run()
+    return { text: `EXECUTING — ${step.cta}.` }
+  }
+  if (any('log evidence', 'mark as evidence', 'add evidence')) {
+    if (ops.phase !== 'EXECUTION') return { text: 'Evidence is logged during EXECUTION.' }
+    const src = evidenceSources.find((e) => e.id === ops.mode)
+    if (!src) return { text: `The ${ops.mode} view is not an evidence source. Open imagery, video, audio or reports first.` }
+    ops.logEvidence(src.id)
+    return { text: `EVIDENCE LOGGED — ${src.label}: ${src.finding}` }
+  }
+  if (any('start the operation', 'start operation', 'begin operation')) {
+    const r = ops.goTo('EXECUTION')
+    return { text: r.ok ? 'OPERATION LIVE — Collection on Warehouse S-3 has begun.' : `BLOCKED — ${r.reason}` }
+  }
+
   // ── lifecycle control ──
   if (any('link all', 'establish all', 'bring assets online')) {
     if (ops.phase !== 'STANDUP') return { text: 'Assets already linked — link procedure only runs during STAND-UP.' }
     ops.linkAll()
     return { text: 'EXECUTING — Establishing comms links to all 12 assets. Handshakes cascading; readiness meter live in the workspace.' }
   }
-  if (any('advance', 'next phase', 'proceed to')) {
+  if (any('advance', 'next phase')) {
     const before = ops.phase
     if (ops.gate) return { text: `BLOCKED BY GATE — ${ops.gate}` }
     ops.advance()
@@ -60,15 +84,6 @@ export function routeCommand(raw, ops) {
   if (any('approve all decision', 'approve decisions', 'clear decision queue')) {
     const n = ops.approveAllDecisions()
     return { text: `DECISIONS APPROVED — ${n} pending operator decisions approved: ${mission.decisionQueue.map((d) => d.id).join(', ')}. Taskings dispatched.` }
-  }
-
-  // ── theater ──
-  for (const t of Object.keys(THEATERS)) {
-    if (cmd.includes(t.toLowerCase())) {
-      ops.setTheater(t)
-      if (ops.phase === 'EXECUTION') ops.setMode('map')
-      return { text: `THEATER SWITCH — Environment set to ${t.toUpperCase()}: ${THEATERS[t].desc}. Map layers re-rendering.` }
-    }
   }
 
   // ── workspace mode ──
@@ -119,8 +134,8 @@ export function routeCommand(raw, ops) {
     return { text: 'PHOTO — Confidence heatmap overlay enabled on frame 2231.' }
   }
   if (any('generate briefing', 'operator briefing', 'brief me')) {
-    bus.emit('briefing.generate')
-    return { text: 'BRIEFING — LLM synthesizing all active intelligence streams. Operator Briefing panel updating.' }
+    const b = briefings[0]
+    return { text: `BRIEFING — ${b.situation} RECOMMENDED: ${b.action}` }
   }
 
   // ── filters ──

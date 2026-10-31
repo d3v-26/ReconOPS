@@ -1,150 +1,48 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { OperationProvider, useOperation } from './context/OperationContext.jsx'
 import { WindowProvider, useWindows } from './context/WindowContext.jsx'
-import CommandHeader from './components/CommandHeader.jsx'
-import PhaseBar from './components/PhaseBar.jsx'
-import MultimodalWorkspace from './components/MultimodalWorkspace.jsx'
+import TopBar from './components/TopBar.jsx'
+import MissionRail from './components/MissionRail.jsx'
+import SidePanel from './components/SidePanel.jsx'
+import Workspace from './components/Workspace.jsx'
 import StandUpView from './components/phases/StandUpView.jsx'
 import PlanningView from './components/phases/PlanningView.jsx'
 import DebriefView from './components/phases/DebriefView.jsx'
-import IntelligenceFeed from './components/IntelligenceFeed.jsx'
-import MissionOverview from './components/MissionOverview.jsx'
-import AssetPanel from './components/AssetPanel.jsx'
-import ThreatPanel from './components/ThreatPanel.jsx'
 import CommandConsole from './components/CommandConsole.jsx'
-import BriefingPanel from './components/BriefingPanel.jsx'
-import DiagnosticsPanel from './components/DiagnosticsPanel.jsx'
-import CommsPanel from './components/CommsPanel.jsx'
-import TaskBar from './components/TaskBar.jsx'
 import ProfileWindow from './components/ProfileWindow.jsx'
-import HudCard from './components/HudCard.jsx'
+import { AO } from './data/mockData.js'
 
-function ThreatPanelPlaceholder({ phase }) {
-  return (
-    <HudCard
-      panelId="threats"
-      title={<>Threat / Anomaly Detection</>}
-      right={<span className="chip chip-muted"><span className="dot" />STANDBY</span>}
-      style={{ flex: 1, minHeight: 110 }}
-    >
-      <div style={{ color: 'var(--muted)', fontSize: 10, lineHeight: 1.6 }}>
-        Anomaly detection arms when the operation enters EXECUTION.
-        {phase === 'STANDUP'
-          ? ' Sensors are still onboarding — no trusted feeds yet.'
-          : ' Detection thresholds are being derived from the approved plan.'}
-      </div>
-    </HudCard>
-  )
-}
-
-function CenterColumn() {
-  const { phase } = useOperation()
-  const view = {
-    STANDUP: <StandUpView />,
-    PLANNING: <PlanningView />,
-    DEBRIEF: <DebriefView />,
-    EXECUTION: <MultimodalWorkspace />,
-  }[phase]
-  return (
-    <>
-      {view}
-      <CommandConsole />
-    </>
-  )
-}
-
-// Dockable panel column: accepts panel drops with positional insert.
-function DockColumn({ col, render }) {
-  const { layout, dragging, movePanel } = useWindows()
-  const [hint, setHint] = useState(null) // insertion index preview
-  const ids = layout[col]
-
-  const indexFromEvent = (e) => {
-    const cards = [...e.currentTarget.querySelectorAll(':scope > .dock-slot > .hud-card')]
-    for (let i = 0; i < cards.length; i++) {
-      const r = cards[i].getBoundingClientRect()
-      if (r.height > 0 && e.clientY < r.top + r.height / 2) return i
-    }
-    return cards.length
-  }
-
-  return (
-    <div
-      className={`col ${dragging ? 'drop-ready' : ''}`}
-      onDragOver={(e) => {
-        if (!dragging) return
-        e.preventDefault()
-        setHint(indexFromEvent(e))
-      }}
-      onDragLeave={() => setHint(null)}
-      onDrop={(e) => {
-        e.preventDefault()
-        const id = e.dataTransfer.getData('text/panel') || dragging
-        if (id) movePanel(id, col, indexFromEvent(e))
-        setHint(null)
-      }}
-    >
-      {ids.map((id, i) => {
-        const node = render(id)
-        if (!node) return null
-        return (
-          <div key={id} className="dock-slot" style={{ display: 'contents' }}>
-            {dragging && hint === i && dragging !== id && <div className="drop-hint" />}
-            {node}
-          </div>
-        )
-      })}
-      {dragging && hint === ids.length && <div className="drop-hint" />}
-    </div>
-  )
-}
+// The side panel follows the phase to whatever matters most right now.
+const SIDE_TAB_FOR_PHASE = { STANDUP: 'comms', PLANNING: 'assets', EXECUTION: 'alerts', DEBRIEF: 'intel' }
 
 function AppShell() {
-  const { phase } = useOperation()
+  const { phase, setSideTab } = useOperation()
   const { floats } = useWindows()
-  const live = phase === 'EXECUTION' || phase === 'DEBRIEF'
 
-  const renderPanel = (id) => {
-    switch (id) {
-      case 'mission': return <MissionOverview />
-      case 'assets': return <AssetPanel />
-      case 'diagnostics': return <DiagnosticsPanel />
-      case 'feed': return live ? <IntelligenceFeed /> : null
-      case 'comms': return <CommsPanel />
-      case 'threats': return live ? <ThreatPanel /> : <ThreatPanelPlaceholder phase={phase} />
-      case 'briefing': return <BriefingPanel />
-      default: return null
-    }
-  }
+  useEffect(() => { setSideTab(SIDE_TAB_FOR_PHASE[phase]) }, [phase, setSideTab])
 
-  const tabIds = ['workspace', 'console', 'mission', 'assets', 'diagnostics', ...(live ? ['feed'] : []), 'comms', 'threats', 'briefing']
+  const stage = {
+    STANDUP: <StandUpView />,
+    PLANNING: <PlanningView />,
+    EXECUTION: <Workspace />,
+    DEBRIEF: <DebriefView />,
+  }[phase]
 
   return (
     <div className="app">
-      <CommandHeader />
-      <PhaseBar />
-
-      <div className="app-body">
-        <DockColumn col="left" render={renderPanel} />
-
-        <div className="col-center">
-          <CenterColumn />
+      <TopBar />
+      <main className="layout">
+        <MissionRail />
+        <div className="center">
+          {stage}
+          <CommandConsole />
         </div>
-
-        <DockColumn col="right" render={renderPanel} />
-      </div>
-
-      <TaskBar panelIds={tabIds} />
-
-      <footer className="app-footer">
-        <span>GHOST COMMAND :: RECONOPS</span>
-        <span className="sep">|</span>
-        <span>PREVIEW BUILD · ALL DATA SIMULATED</span>
-        <span className="sep">|</span>
-        <span>SAM-H SEGMENTATION + LLM REASONING LAYER</span>
-        <span style={{ marginLeft: 'auto' }}>NO REAL OPERATIONAL DATA · FICTIONAL SCENARIO</span>
+        <SidePanel />
+      </main>
+      <footer className="footer">
+        <span>Fictional scenario · all feeds simulated · no real operational data</span>
+        <span>{AO.imageryCredit} · Icons: Lucide (ISC)</span>
       </footer>
-
       {floats.map((w) => <ProfileWindow key={w.key} win={w} />)}
     </div>
   )

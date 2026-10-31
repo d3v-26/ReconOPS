@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import HudCard from './HudCard.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import { feedEvents } from '../data/mockData.js'
 import { useOperation } from '../context/OperationContext.jsx'
@@ -11,8 +10,6 @@ const SOURCE_MODE = { Photo: 'photo', Audio: 'audio', Video: 'video', Map: 'map'
 export default function IntelligenceFeed() {
   const { feedFilters, setFeedFilters, setMode, phase } = useOperation()
   const { prio, media } = feedFilters
-  const setPrio = (p) => setFeedFilters((f) => ({ ...f, prio: p }))
-  const setMedia = (m) => setFeedFilters((f) => ({ ...f, media: m }))
   const [visible, setVisible] = useState(5)
 
   // streaming effect: reveal items over time
@@ -27,41 +24,34 @@ export default function IntelligenceFeed() {
     .filter((e) => (prio === 'All' || e.priority === prio) && (media === 'All' || e.source === media))
 
   return (
-    <HudCard
-      panelId="feed"
-      title="AI Intelligence Feed"
-      right={<span className="chip chip-cyan pulse"><span className="dot" />STREAMING</span>}
-      style={{ flex: 2, minHeight: 220 }}
-    >
-      <div className="filter-row">
-        {PRIORITIES.map((p) => (
-          <button key={p} className={prio === p ? 'active' : ''} onClick={() => setPrio(p)}>{p}</button>
-        ))}
-      </div>
-      <div className="filter-row">
-        {MEDIA.map((m) => (
-          <button key={m} className={media === m ? 'active btn-green' : ''} onClick={() => setMedia(m)}>{m}</button>
-        ))}
+    <div className="list-panel">
+      <div className="filter-bar">
+        <select value={prio} onChange={(e) => setFeedFilters((f) => ({ ...f, prio: e.target.value }))} aria-label="Priority">
+          {PRIORITIES.map((p) => <option key={p} value={p}>{p === 'All' ? 'All priorities' : p}</option>)}
+        </select>
+        <select value={media} onChange={(e) => setFeedFilters((f) => ({ ...f, media: e.target.value }))} aria-label="Source">
+          {MEDIA.map((m) => <option key={m} value={m}>{m === 'All' ? 'All sources' : m}</option>)}
+        </select>
+        <span className="live-dot">Live</span>
       </div>
       {items.map((e) => (
-        <div
+        <button
           key={e.id}
           className={`feed-item prio-${e.priority}`}
-          style={{ cursor: phase === 'EXECUTION' ? 'pointer' : 'default' }}
-          title="Open source workspace"
-          onClick={() => phase === 'EXECUTION' && setMode(SOURCE_MODE[e.source] || 'map')}
+          disabled={phase !== 'EXECUTION'}
+          title="Open the source in the workspace"
+          onClick={() => setMode(SOURCE_MODE[e.source] || 'map')}
         >
-          <div className="feed-top">
-            <span className="chip chip-muted">{e.source}</span>
-            <span className="chip chip-cyan">{e.tag}</span>
+          <span className="feed-top">
+            <span className="feed-src">{e.source}</span>
             <StatusBadge status={e.priority} />
-            <span className="feed-time">{e.time}</span>
-          </div>
-          <div className="feed-summary">{e.summary}</div>
-          <div className="feed-src">{e.sourceName} · conf {(e.confidence * 100).toFixed(0)}%</div>
-        </div>
+            <span className="feed-time mono">{e.time}</span>
+          </span>
+          <span className="feed-summary">{e.summary}</span>
+          <span className="feed-meta">{e.sourceName} · {e.tag} · {Math.round(e.confidence * 100)}%</span>
+        </button>
       ))}
-      {items.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 10 }}>No events match current filters.</div>}
-    </HudCard>
+      {items.length === 0 && <div className="empty"><span>No events match the filters.</span></div>}
+    </div>
   )
 }

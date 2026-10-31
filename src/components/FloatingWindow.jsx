@@ -1,9 +1,10 @@
 import { useRef } from 'react'
+import { X } from 'lucide-react'
 import { useWindows } from '../context/WindowContext.jsx'
 
 // Draggable floating window (dossier viewer). Drag by header, pointer-based.
 export default function FloatingWindow({ win, title, accent = 'var(--cyan)', children }) {
-  const { closeProfile, focusProfile, minProfile, moveProfile } = useWindows()
+  const { closeProfile, focusProfile, moveProfile } = useWindows()
   const dragRef = useRef(null)
 
   const onPointerDown = (e) => {
@@ -22,8 +23,6 @@ export default function FloatingWindow({ win, title, accent = 'var(--cyan)', chi
   }
   const onPointerUp = () => { dragRef.current = null }
 
-  if (win.min) return null
-
   return (
     <div
       className="float-win"
@@ -36,10 +35,9 @@ export default function FloatingWindow({ win, title, accent = 'var(--cyan)', chi
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <span className="float-title"><span className="tick" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />{title}</span>
+        <span className="float-title"><span className="tick" style={{ background: accent }} />{title}</span>
         <span className="win-controls">
-          <button className="win-btn" title="Minimize to taskbar" onClick={() => minProfile(win.key)}>—</button>
-          <button className="win-btn" title="Close" onClick={() => closeProfile(win.key)}>✕</button>
+          <button className="win-btn" title="Close" onClick={() => closeProfile(win.key)} aria-label="Close"><X size={14} /></button>
         </span>
       </header>
       <div className="float-body">{children}</div>

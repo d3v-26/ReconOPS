@@ -1,92 +1,67 @@
-import HudCard from '../HudCard.jsx'
-import StatusBadge from '../StatusBadge.jsx'
+import { Zap, CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import Pane from '../Pane.jsx'
+import TacticalMap from '../TacticalMap.jsx'
+import { TYPE_ICON } from '../AssetPanel.jsx'
 import { useOperation } from '../../context/OperationContext.jsx'
+import { useWindows } from '../../context/WindowContext.jsx'
 import { assets, onboardingChecklist } from '../../data/mockData.js'
-
-const LINK_LABEL = { pending: 'NO LINK', handshake: 'HANDSHAKE…', linked: 'LINKED' }
-const LINK_TONE = { pending: 'red', handshake: 'amber', linked: 'green' }
 
 export default function StandUpView() {
   const { links, establishLink, linkAll, linkedCount, readiness } = useOperation()
+  const { openProfile } = useWindows()
 
-  const checkDone = (chk) =>
-    chk.auto ? linkedCount > 0 : chk.linkGate.every((id) => links[id] === 'linked')
+  const checkDone = (chk) => (chk.auto ? linkedCount > 0 : chk.linkGate.every((id) => links[id] === 'linked'))
 
   return (
-    <HudCard
-      panelId="workspace"
-      className="workspace"
-      title="Operation Stand-Up · Asset Onboarding"
-      right={<span className={`chip chip-${readiness === 100 ? 'green' : 'amber'} pulse`}><span className="dot" />READINESS {readiness}%</span>}
-    >
-      <div className="standup-layout">
-        <div className="view-main">
-          <div className="view-controls" style={{ alignItems: 'center' }}>
-            <button className="btn-green" onClick={linkAll}>⚡ Establish All Links</button>
-            <div className="progress-block" style={{ flex: 1, minWidth: 160 }}>
-              <div className="meter"><i style={{ width: `${readiness}%`, background: 'linear-gradient(90deg, var(--amber), var(--green))' }} /></div>
-              <span className="progress-label">{linkedCount}/{assets.length}</span>
-            </div>
+    <Pane
+      eyebrow="Phase 1 · Stand-up"
+      title="Bring every sensor onto the command net"
+      sub="Each asset authenticates, exchanges keys and calibrates. The AI only trusts data from linked assets."
+      actions={
+        <>
+          <div className="progress">
+            <div className="progress-bar"><i style={{ width: `${readiness}%` }} /></div>
+            <span className="mono">{linkedCount}/12</span>
           </div>
-
-          <div className="link-grid">
+          <button className="btn btn-accent" onClick={linkAll} disabled={readiness === 100}><Zap size={14} /> Link all</button>
+        </>
+      }
+    >
+      <div className="split">
+        <div className="map-wrap">
+          <TacticalMap show={{ assets: true, pois: true }} links={links} onSelect={openProfile} />
+          <div className="map-caption">Asset positions · grey = offline, cyan = linked</div>
+        </div>
+        <div className="split-side">
+          <div className="eyebrow">Checklist</div>
+          <ul className="criteria compact">
+            {onboardingChecklist.map((c) => {
+              const done = checkDone(c)
+              return (
+                <li key={c.id} className={done ? 'done' : ''}>
+                  {done ? <CheckCircle2 size={15} /> : <Circle size={15} />}<span>{c.label}</span>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="eyebrow" style={{ marginTop: 16 }}>Assets</div>
+          <div className="roster">
             {assets.map((a) => {
+              const Icon = TYPE_ICON[a.type]
               const st = links[a.id]
               return (
-                <div key={a.id} className={`link-card lc-${st}`}>
-                  <div className="lc-head">
-                    <span className="asset-name">{a.id} · {a.name}</span>
-                    <span className={`chip chip-${LINK_TONE[st]} ${st === 'handshake' ? 'pulse' : ''}`}>
-                      <span className="dot" />{LINK_LABEL[st]}
-                    </span>
-                  </div>
-                  <div className="asset-type">{a.type} → {a.dataType}</div>
-                  {st === 'pending' && (
-                    <button onClick={() => establishLink(a.id)}>Establish Link</button>
-                  )}
-                  {st === 'handshake' && (
-                    <div className="thinking" style={{ fontSize: 9 }}>KEY EXCHANGE · NET JOIN <i /><i /><i /></div>
-                  )}
-                  {st === 'linked' && (
-                    <div className="lc-linked">▸ encrypted net joined · telemetry flowing · calibration OK</div>
-                  )}
+                <div key={a.id} className={`roster-row link-${st}`}>
+                  <Icon size={14} />
+                  <span className="roster-name">{a.name}</span>
+                  {st === 'pending' && <button className="btn btn-xs" onClick={() => establishLink(a.id)}>Link</button>}
+                  {st === 'handshake' && <span className="roster-st amber"><Loader2 size={12} className="spin" /> Keys</span>}
+                  {st === 'linked' && <span className="roster-st green">Linked</span>}
                 </div>
               )
             })}
           </div>
         </div>
-
-        <aside className="view-side">
-          <div>
-            <div className="mini-title">STAND-UP CHECKLIST</div>
-            {onboardingChecklist.map((chk) => {
-              const done = checkDone(chk)
-              return (
-                <div key={chk.id} className={`phase-row ${done ? 'st-Complete' : 'st-Pending'}`}>
-                  <span className="ph-dot" style={done ? { background: 'var(--green)', borderColor: 'var(--green)' } : undefined} />
-                  <span style={{ flex: 1 }}>{chk.label}</span>
-                  <span style={{ fontSize: 8 }}>{done ? 'DONE' : 'WAITING'}</span>
-                </div>
-              )
-            })}
-          </div>
-          <div>
-            <div className="mini-title">WHY STAND-UP FIRST <StatusBadge status="Pending" tone="cyan" /></div>
-            <div className="ai-text">
-              An operation cannot start mid-stream. Every asset must authenticate onto the command net,
-              exchange encryption keys, calibrate its sensors, and report a health baseline. The AI fusion
-              layer only trusts feeds from linked assets — unlinked data is quarantined.
-            </div>
-          </div>
-          <div>
-            <div className="mini-title">LLM PRE-BRIEF</div>
-            <div className="ai-text amber">
-              Ingesting prior intel while assets link: 3 documents parsed, baseline imagery loaded,
-              acoustic noise floors captured. Planning workspace unlocks at 100% readiness.
-            </div>
-          </div>
-        </aside>
       </div>
-    </HudCard>
+    </Pane>
   )
 }

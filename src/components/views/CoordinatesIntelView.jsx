@@ -28,7 +28,7 @@ export default function CoordinatesIntelView() {
       <div className="view-main">
         <div style={{ display: 'flex', gap: 6 }}>
           <input
-            placeholder='Parse coordinates… e.g. 34.0522 N, 118.2437 W · QT 4412 8867 · REL BRAVO +400m @042'
+            placeholder='Parse coordinates… e.g. 35.0559 N, 118.1545 W · QT 4412 8867 · REL BRAVO +400m @042'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && parseInput()}

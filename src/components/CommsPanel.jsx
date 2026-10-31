@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import HudCard from './HudCard.jsx'
+import { Send } from 'lucide-react'
 import { useOperation } from '../context/OperationContext.jsx'
 import { useWindows } from '../context/WindowContext.jsx'
 import { commsTraffic } from '../data/mockData.js'
@@ -45,28 +45,19 @@ export default function CommsPanel() {
   }
 
   return (
-    <HudCard
-      panelId="comms"
-      title="Comms Net"
-      right={<span className="chip chip-green pulse"><span className="dot" />{linkedCount} ON NET</span>}
-      noPad
-      style={{ flex: 2, minHeight: 170 }}
-    >
+    <div className="comms">
       <div className="comms-log" ref={logRef}>
         {log.map((m, i) => (
           <div key={i} className={`comms-line ${m.sys ? 'sys' : ''} ${m.op ? 'op' : ''}`}>
-            <span className="ct">{m.t}</span>
-            <span
-              className={`cf ${!m.sys && !m.op ? 'cf-link' : ''}`}
-              title={!m.sys && !m.op ? 'Open station dossier' : undefined}
-              onClick={() => !m.sys && !m.op && openProfile(m.from)}
-            >{m.from}</span>
+            <span className="ct mono">{m.t}</span>
+            {!m.sys && !m.op
+              ? <button className="cf cf-link" title="Open station dossier" onClick={() => openProfile(m.from)}>{m.from}</button>
+              : <span className="cf">{m.from}</span>}
             <span className="cx">{m.text}</span>
           </div>
         ))}
       </div>
-      <div className="console-input-row">
-        <span className="console-prompt" style={{ color: 'var(--amber)' }}>⇌</span>
+      <div className="input-row">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -74,8 +65,8 @@ export default function CommsPanel() {
           placeholder="Transmit to all stations…"
           spellCheck={false}
         />
-        <button className="btn-amber" onClick={transmit}>TX</button>
+        <button className="btn icon-btn" onClick={transmit} aria-label="Transmit"><Send size={14} /></button>
       </div>
-    </HudCard>
+    </div>
   )
 }

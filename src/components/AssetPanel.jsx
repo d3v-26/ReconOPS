@@ -1,46 +1,43 @@
-import HudCard from './HudCard.jsx'
+import { Drone, Cctv, Mic, Truck, Satellite, Users, Layers, FileText, ScanLine } from 'lucide-react'
 import StatusBadge from './StatusBadge.jsx'
-import AssetIcon, { TYPE_ICON } from './AssetIcon.jsx'
 import { assets } from '../data/mockData.js'
+import { useOperation } from '../context/OperationContext.jsx'
 import { useWindows } from '../context/WindowContext.jsx'
 
-function meterColor(v) {
-  if (v > 75) return 'var(--green)'
-  if (v > 45) return 'var(--amber)'
-  return 'var(--red)'
+export const TYPE_ICON = {
+  Drone, Camera: Cctv, 'Audio Sensor': Mic, Vehicle: Truck, Satellite, 'Human Team': Users,
+  'Map Layer': Layers, 'Document Feed': FileText, '3D Scanner': ScanLine,
 }
 
+const LINK_STATUS = { pending: 'No link', handshake: 'Linking', linked: null }
+
 export default function AssetPanel() {
-  const { openProfile, floats } = useWindows()
-  const openIds = new Set(floats.map((f) => f.profileId))
+  const { links } = useOperation()
+  const { openProfile } = useWindows()
 
   return (
-    <HudCard
-      panelId="assets"
-      title={`Asset Coordination · ${assets.length}`}
-      right={<span className="chip chip-green"><span className="dot" />{assets.filter((a) => a.status === 'Active').length} ACTIVE</span>}
-      style={{ flex: 3, minHeight: 220 }}
-    >
-      {assets.map((a) => (
-        <div key={a.id} className={`asset-row with-icon ${openIds.has(a.id) ? 'selected' : ''}`}
-          title="Open dossier"
-          onClick={() => openProfile(a.id)}>
-          <div className="asset-ico">
-            <AssetIcon kind={TYPE_ICON[a.type] || 'structure'} size={22} color={a.status === 'Offline' ? 'var(--muted)' : 'var(--cyan)'} />
-          </div>
-          <div>
-            <div className="asset-name">{a.id} · {a.name}</div>
-            <div className="asset-type">{a.type} → {a.dataType}</div>
-          </div>
-          <StatusBadge status={a.status} pulse={a.status === 'Active'} />
-          <div className="asset-meters">
-            <span className="lbl">HP</span>
-            <div className="meter"><i style={{ width: `${a.health}%`, background: meterColor(a.health) }} /></div>
-            <span className="lbl">SIG</span>
-            <div className="meter"><i style={{ width: `${a.signal}%`, background: meterColor(a.signal) }} /></div>
-          </div>
-        </div>
-      ))}
-    </HudCard>
+    <div className="list-panel">
+      {assets.map((a) => {
+        const Icon = TYPE_ICON[a.type] || Layers
+        const st = links[a.id]
+        const status = LINK_STATUS[st] || a.status
+        return (
+          <button key={a.id} className={`asset-row link-${st}`} onClick={() => openProfile(a.id)} title="Open dossier">
+            <span className="asset-ico"><Icon size={16} /></span>
+            <span className="asset-main">
+              <span className="asset-name">{a.name} <span className="mono dim">{a.id}</span></span>
+              <span className="asset-task">{a.task}</span>
+              {st === 'linked' && (
+                <span className="asset-bars">
+                  <span className="bar"><i style={{ width: `${a.health}%` }} className={a.health < 60 ? 'low' : ''} /></span>
+                  <span className="bar"><i style={{ width: `${a.signal}%` }} className={a.signal < 60 ? 'low' : ''} /></span>
+                </span>
+              )}
+            </span>
+            <StatusBadge status={status} tone={st === 'pending' ? 'muted' : st === 'handshake' ? 'amber' : undefined} />
+          </button>
+        )
+      })}
+    </div>
   )
 }

@@ -6,7 +6,7 @@ const TONE = {
   // severities / priorities
   Critical: 'red', High: 'amber', Medium: 'cyan', Low: 'muted', Elevated: 'amber',
   // review statuses
-  Unreviewed: 'red', 'In Review': 'amber', 'Human Review': 'amber', Deferred: 'muted', Monitoring: 'cyan',
+  Unreviewed: 'red', Dismissed: 'muted', 'No link': 'muted', Linking: 'amber', 'In Review': 'amber', 'Human Review': 'amber', Deferred: 'muted', Monitoring: 'cyan',
 }
 
 export default function StatusBadge({ status, pulse = false, tone }) {

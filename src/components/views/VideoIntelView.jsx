@@ -1,20 +1,12 @@
 import { useEffect, useState } from 'react'
 import StatusBadge from '../StatusBadge.jsx'
-import TerrainCanvas from '../TerrainCanvas.jsx'
 import { videoTracks, videoTimeline, videoSummary, videoBriefing } from '../../data/mockData.js'
 import { bus } from '../../lib/bus.js'
 import { useWindows } from '../../context/WindowContext.jsx'
 
-// Ground truth for the drone frame — matches SAM-H track boxes.
-const FRAME_FEATURES = [
-  { type: 'warehouse', x: 54, y: 16, w: 20, h: 15 },
-  { type: 'vehicle', x: 18, y: 58, w: 15, h: 12 },
-  { type: 'vehicle', x: 58, y: 40, w: 14, h: 11 },
-  { type: 'person', x: 40, y: 66, w: 6, h: 12 },
-  { type: 'person', x: 74, y: 62, w: 6, h: 11 },
-  { type: 'blob', x: 84, y: 24, w: 8, h: 8 },
-  { type: 'animal', x: 8, y: 30, w: 7, h: 6 },
-]
+const FRAME = `${import.meta.env.BASE_URL}imagery/s3-wide.jpg`
+// Warehouse S-3 footprint in the frame (% of image) — zoom origin + target outline.
+const S3 = { x: 47, y: 45.3, w: 5.5, h: 6.5 }
 
 export default function VideoIntelView() {
   const { openProfile } = useWindows()
@@ -54,32 +46,29 @@ export default function VideoIntelView() {
           <button className="btn-amber" onClick={() => runAI(videoBriefing)}>Mission Briefing</button>
         </div>
 
-        <div className={`stage scanlines ${thermal ? 'thermal' : ''}`}>
-          <TerrainCanvas seed={41} variant="video" features={FRAME_FEATURES} />
-          {thermal && <div className="thermal-tint" />}
-          <div className="scan-sweep" />
-          <div className="stage-label"><span className="rec-dot" />SPECTER-1 · LIVE FEED · 30 FPS · {thermal ? 'THERMAL / WHITE-HOT' : 'EO / VISIBLE'} · SAM-H TRACKING</div>
-          <div style={{ position: 'absolute', top: 8, right: 12, fontSize: 9, color: 'var(--green)', zIndex: 6, fontVariantNumeric: 'tabular-nums' }}>
-            T+{String(Math.floor(playT)).padStart(2, '0')}s
-          </div>
-
-          {showTracking && videoTracks.map((tr, i) => (
-            <div
-              key={tr.id}
-              className={`seg-box active-seg drift-${i % 3} ${selected?.id === tr.id ? 'selected' : ''}`}
-              style={{ left: `${tr.box.x}%`, top: `${tr.box.y}%`, width: `${tr.box.w}%`, height: `${tr.box.h}%`, color: tr.color }}
-              onClick={() => setSelected(tr)}
-              onDoubleClick={() => openProfile(tr.id)}
-              title="Click: inspect · Double-click: open dossier"
-            >
-              <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
-              {showSeg && <span className="seg-mask" style={{ background: tr.color }} />}
-              <span className="seg-label" style={tr.box.x + tr.box.w > 80 ? { left: 'auto', right: -1 } : undefined}>
-                {tr.id} · {tr.type.toUpperCase()}
-              </span>
-              <span className="seg-conf">{(tr.confidence * 100).toFixed(0)}%</span>
+        <div className={`stage imagery video-stage ${thermal ? 'thermal' : ''}`}>
+          {/* image + boxes share one transformed layer so tracks stay pinned while the drone orbits */}
+          <div className="video-frame" style={{ transformOrigin: `${S3.x + S3.w / 2}% ${S3.y + S3.h / 2}%` }}>
+            <img className="stage-img" src={FRAME} alt="SPECTER-1 drone view over Warehouse S-3" draggable={false} />
+            <div className="tgt-outline" style={{ left: `${S3.x}%`, top: `${S3.y}%`, width: `${S3.w}%`, height: `${S3.h}%` }}>
+              <span>TGT-01 · S-3</span>
             </div>
-          ))}
+            {showTracking && videoTracks.map((tr, i) => (
+              <div
+                key={tr.id}
+                className={`seg-box small drift-${i % 3} ${selected?.id === tr.id ? 'selected' : ''}`}
+                style={{ left: `${tr.box.x}%`, top: `${tr.box.y}%`, width: `${tr.box.w}%`, height: `${tr.box.h}%`, color: tr.color }}
+                onClick={() => setSelected(tr)}
+                onDoubleClick={() => openProfile(tr.id)}
+                title="Click: inspect · Double-click: open dossier"
+              >
+                {showSeg && <span className="seg-mask" style={{ background: tr.color }} />}
+                <span className="seg-label">{tr.id}</span>
+              </div>
+            ))}
+          </div>
+          <div className="stage-label"><span className="rec-dot" />SPECTER-1 · LIVE · {thermal ? 'IR WHITE-HOT' : 'EO VISIBLE'} · 120M AGL</div>
+          <div className="stage-clock mono">T+{String(Math.floor(playT)).padStart(2, '0')}s</div>
         </div>
 
         <div>

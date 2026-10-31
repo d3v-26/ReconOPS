@@ -1,19 +1,34 @@
 // ─── Ghost Command: ReconOPS — mock intelligence data ───
 // All data fictional. Preview mode only.
 
-export const ENVIRONMENTS = [
-  'Global', 'Urban', 'Maritime', 'Border', 'Airspace', 'Cyber', 'Disaster Response', 'Research Lab',
-]
+// Area of operations — real USGS public-domain orthoimagery used as a stand-in
+// backdrop. Positions across the app are % of this box (x: west→east, y: north→south).
+export const AO = {
+  name: 'SECTOR 7',
+  bounds: { north: 35.07496, south: 35.03899, west: -118.19092, east: -118.13599 },
+  imageryCredit: 'Imagery: USDA / USGS The National Map (public domain)',
+}
 
 export const DATA_MODES = [
-  { id: 'map', label: 'MAP', icon: '◈' },
-  { id: 'photo', label: 'PHOTO', icon: '▣' },
-  { id: 'audio', label: 'AUDIO', icon: '≋' },
-  { id: 'video', label: 'VIDEO', icon: '▶' },
-  { id: '3d', label: '3D', icon: '◮' },
-  { id: 'coords', label: 'COORDS', icon: '⌖' },
-  { id: 'docs', label: 'DOCS', icon: '≡' },
+  { id: 'map', label: 'Map' },
+  { id: 'photo', label: 'Imagery' },
+  { id: 'video', label: 'Video' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'docs', label: 'Reports' },
+  { id: '3d', label: '3D Scan' },
+  { id: 'coords', label: 'Coordinates' },
 ]
+
+// ─── The question the whole operation exists to answer ───
+// Each source the operator logs as evidence moves confidence toward a verdict.
+export const evidenceSources = [
+  { id: 'photo', label: 'Overhead imagery', weight: 0.16, finding: 'Truck, 3-person group and a new container at the S-3 loading bay — container absent from baseline.' },
+  { id: 'video', label: 'Drone video', weight: 0.16, finding: 'SPECTER-1 shows a vehicle shuttle into S-3 and personnel holding a loading posture.' },
+  { id: 'audio', label: 'Intercepted audio', weight: 0.15, finding: '"Moving the first load now… we are on a window" — speakers coordinating a timed movement.' },
+  { id: 'docs', label: 'Field reports', weight: 0.13, finding: 'FR-118 and B-77 independently cite trucks at the S-3 bay and a 14:00–15:00Z movement window.' },
+]
+export const EVIDENCE_BASE = 0.3
+export const EVIDENCE_REQUIRED = 3
 
 // ─── Assets ───
 export const assets = [
@@ -66,7 +81,9 @@ export const anomalies = [
 // ─── Mission ───
 export const mission = {
   title: 'OPERATION QUIET HORIZON',
-  objective: 'Establish persistent multimodal surveillance over Sector 7 and verify reported supply movement without escalation.',
+  question: 'Is Warehouse S-3 being used to stage supplies?',
+  objective: 'Confirm or rule out supply staging at Warehouse S-3 before the 15:00Z movement window closes — without escalating.',
+  deadline: '15:00Z',
   phases: [
     { name: 'Phase 1 — Sensor Emplacement', status: 'Complete' },
     { name: 'Phase 2 — Baseline Collection', status: 'Complete' },
@@ -93,14 +110,14 @@ export const mission = {
 
 // ─── Photo intel ───
 export const photoSegments = [
-  { id: 'SEG-01', type: 'Vehicle', label: 'VEHICLE · TRUCK CLASS', confidence: 0.94, risk: 'High', box: { x: 12, y: 55, w: 14, h: 11 }, color: 'var(--amber)', summary: 'Heavy truck stationary near checkpoint access road. Thermal shadow suggests recent engine activity.', action: 'Maintain track; flag for next satellite pass.' },
-  { id: 'SEG-02', type: 'Structure', label: 'STRUCTURE · WAREHOUSE', confidence: 0.97, risk: 'Low', box: { x: 55, y: 18, w: 24, h: 20 }, color: 'var(--cyan)', summary: 'Known warehouse footprint matches baseline imagery. No structural change detected.', action: 'No action. Baseline confirmed.' },
-  { id: 'SEG-03', type: 'Personnel', label: 'PERSONNEL · GROUP (3)', confidence: 0.81, risk: 'Medium', box: { x: 36, y: 62, w: 8, h: 9 }, color: 'var(--green)', summary: 'Three individuals near vehicle SEG-01. Movement pattern consistent with loading activity.', action: 'Correlate with audio feed EARSHOT-A.' },
-  { id: 'SEG-04', type: 'Equipment', label: 'EQUIPMENT · CONTAINER', confidence: 0.76, risk: 'Medium', box: { x: 70, y: 58, w: 10, h: 8 }, color: 'var(--amber)', summary: 'Container-class object not present in baseline. Appeared within last 6 hours.', action: 'Add to change-detection watchlist.' },
-  { id: 'SEG-05', type: 'Unknown', label: 'UNKNOWN · UNSTABLE MASK', confidence: 0.55, risk: 'High', box: { x: 84, y: 34, w: 9, h: 10 }, color: 'var(--red)', summary: 'SAM-H mask unstable across frames. Object class oscillates between equipment and terrain feature.', action: 'Human review required.' },
+  { id: 'SEG-01', type: 'Vehicle', label: 'VEHICLE · TRUCK CLASS', confidence: 0.94, risk: 'High', box: { x: 46.5, y: 76, w: 5, h: 6 }, color: 'var(--amber)', summary: 'Heavy truck stationary near checkpoint access road. Thermal shadow suggests recent engine activity.', action: 'Maintain track; flag for next satellite pass.' },
+  { id: 'SEG-02', type: 'Structure', label: 'STRUCTURE · WAREHOUSE', confidence: 0.97, risk: 'Low', box: { x: 45.5, y: 42.5, w: 13, h: 14.5 }, color: 'var(--cyan)', summary: 'Known warehouse footprint matches baseline imagery. No structural change detected.', action: 'No action. Baseline confirmed.' },
+  { id: 'SEG-03', type: 'Personnel', label: 'PERSONNEL · GROUP (3)', confidence: 0.81, risk: 'Medium', box: { x: 61, y: 38, w: 7.5, h: 7 }, color: 'var(--green)', summary: 'Three individuals near vehicle SEG-01. Movement pattern consistent with loading activity.', action: 'Correlate with audio feed EARSHOT-A.' },
+  { id: 'SEG-04', type: 'Equipment', label: 'EQUIPMENT · CONTAINER', confidence: 0.76, risk: 'Medium', box: { x: 61.5, y: 67.5, w: 4.5, h: 5 }, color: 'var(--amber)', summary: 'Container-class object not present in baseline. Appeared within last 6 hours.', action: 'Add to change-detection watchlist.' },
+  { id: 'SEG-05', type: 'Unknown', label: 'UNKNOWN · UNSTABLE MASK', confidence: 0.55, risk: 'High', box: { x: 53.5, y: 20, w: 6.5, h: 9 }, color: 'var(--red)', summary: 'Object on the north apron. SAM-H mask unstable across frames — class oscillates between aircraft and equipment.', action: 'Human review required.' },
 ]
 
-export const photoSummary = 'SAM-H segmented 5 regions across frame 2231. Scene shows probable loading activity: one truck-class vehicle (0.94), a 3-person group (0.81), and a new container-class object (0.76) absent from baseline. One unknown object near ridge requires human review. Recommend correlating with EARSHOT-A acoustic feed and prioritizing the 14:20Z satellite pass.'
+export const photoSummary = 'SAM-H segmented 5 regions across frame 2231. Scene shows probable loading activity: one truck-class vehicle (0.94), a 3-person group (0.81), and a new container-class object (0.76) absent from baseline. One unknown object on the north apron requires human review. Recommend correlating with EARSHOT-A acoustic feed and prioritizing the 14:20Z satellite pass.'
 
 // ─── Audio intel ───
 export const audioSegments = [
@@ -132,12 +149,12 @@ export const audioMeta = {
 
 // ─── Video intel ───
 export const videoTracks = [
-  { id: 'T-03', type: 'Vehicle', direction: 'NE → E', confidence: 0.93, lastSeen: '14:01:58Z', color: 'var(--amber)', box: { x: 18, y: 58, w: 15, h: 12 } },
-  { id: 'T-07', type: 'Vehicle', direction: 'E → SW (changed)', confidence: 0.91, lastSeen: '14:01:30Z', color: 'var(--red)', box: { x: 58, y: 40, w: 14, h: 11 } },
-  { id: 'T-09', type: 'Person', direction: 'Static', confidence: 0.84, lastSeen: '14:01:55Z', color: 'var(--green)', box: { x: 40, y: 66, w: 6, h: 12 } },
-  { id: 'T-11', type: 'Person', direction: 'W → NW', confidence: 0.78, lastSeen: '14:01:12Z', color: 'var(--green)', box: { x: 74, y: 62, w: 6, h: 11 } },
-  { id: 'T-12', type: 'Unknown', direction: 'Erratic', confidence: 0.58, lastSeen: '14:00:49Z', color: 'var(--red)', box: { x: 84, y: 24, w: 8, h: 8 } },
-  { id: 'T-14', type: 'Animal', direction: 'S → SE', confidence: 0.71, lastSeen: '13:59:37Z', color: 'var(--cyan)', box: { x: 8, y: 30, w: 7, h: 6 } },
+  { id: 'T-03', type: 'Vehicle', direction: 'NE → E', confidence: 0.93, lastSeen: '14:01:58Z', color: 'var(--amber)', box: { x: 44.6, y: 54.6, w: 2.4, h: 2.6 } },
+  { id: 'T-07', type: 'Vehicle', direction: 'E → SW (changed)', confidence: 0.91, lastSeen: '14:01:30Z', color: 'var(--red)', box: { x: 58, y: 54.4, w: 2.4, h: 2.6 } },
+  { id: 'T-09', type: 'Person', direction: 'Static', confidence: 0.84, lastSeen: '14:01:55Z', color: 'var(--green)', box: { x: 54.6, y: 47.6, w: 1.4, h: 2 } },
+  { id: 'T-11', type: 'Person', direction: 'W → NW', confidence: 0.78, lastSeen: '14:01:12Z', color: 'var(--green)', box: { x: 53.6, y: 50.2, w: 1.4, h: 2 } },
+  { id: 'T-12', type: 'Unknown', direction: 'Erratic', confidence: 0.58, lastSeen: '14:00:49Z', color: 'var(--red)', box: { x: 51.6, y: 35.8, w: 3.2, h: 3.4 } },
+  { id: 'T-14', type: 'Animal', direction: 'S → SE', confidence: 0.71, lastSeen: '13:59:37Z', color: 'var(--cyan)', box: { x: 39.4, y: 62.6, w: 1.4, h: 1.4 } },
 ]
 
 export const videoTimeline = [
@@ -155,39 +172,39 @@ export const videoBriefing = 'MISSION BRIEFING (video-derived) — SPECTER-1 str
 
 // ─── Map intel ───
 export const mapMarkers = [
-  { id: 'M-01', name: 'SPECTER-1', kind: 'drone', x: 34, y: 26, status: 'Active' },
-  { id: 'M-02', name: 'SPECTER-2', kind: 'drone', x: 68, y: 18, status: 'Rerouting' },
-  { id: 'M-03', name: 'ARGUS-NE', kind: 'camera', x: 78, y: 34, status: 'Active' },
-  { id: 'M-04', name: 'ARGUS-SW', kind: 'camera', x: 22, y: 70, status: 'Degraded' },
-  { id: 'M-05', name: 'EARSHOT-A', kind: 'sensor', x: 52, y: 44, status: 'Active' },
-  { id: 'M-06', name: 'NOMAD-3', kind: 'vehicle', x: 42, y: 58, status: 'Active' },
-  { id: 'M-07', name: 'VANGUARD', kind: 'team', x: 58, y: 66, status: 'Holding' },
-  { id: 'M-08', name: 'CONTACT-X', kind: 'threat', x: 82, y: 52, status: 'Unregistered' },
-  { id: 'M-09', name: 'CHECKPOINT N', kind: 'poi', x: 30, y: 40, status: 'Watched' },
-  { id: 'M-10', name: 'WAREHOUSE S-3', kind: 'poi', x: 64, y: 48, status: 'Baseline' },
+  { id: 'M-01', name: 'SPECTER-1', kind: 'drone', x: 60, y: 46, status: 'Active' },
+  { id: 'M-02', name: 'SPECTER-2', kind: 'drone', x: 80, y: 14, status: 'Rerouting' },
+  { id: 'M-03', name: 'ARGUS-NE', kind: 'camera', x: 76, y: 45, status: 'Active' },
+  { id: 'M-04', name: 'ARGUS-SW', kind: 'camera', x: 30, y: 68, status: 'Degraded' },
+  { id: 'M-05', name: 'EARSHOT-A', kind: 'sensor', x: 58, y: 59, status: 'Active' },
+  { id: 'M-06', name: 'NOMAD-3', kind: 'vehicle', x: 45, y: 75, status: 'Active' },
+  { id: 'M-07', name: 'VANGUARD', kind: 'team', x: 52, y: 67, status: 'Holding' },
+  { id: 'M-08', name: 'CONTACT-X', kind: 'threat', x: 88, y: 58, status: 'Unregistered' },
+  { id: 'M-09', name: 'CHECKPOINT N', kind: 'poi', x: 26, y: 45.5, status: 'Watched' },
+  { id: 'M-10', name: 'WAREHOUSE S-3', kind: 'poi', x: 66.3, y: 53, status: 'Baseline' },
 ]
 
 export const mapZones = [
-  { id: 'GF-2', name: 'GEOFENCE GF-2', kind: 'geofence', x: 66, y: 56, r: 14, color: 'var(--red)' },
-  { id: 'THR-2', name: 'THREAT RING THR-2', kind: 'threat', x: 30, y: 42, r: 11, color: 'var(--amber)' },
-  { id: 'SZ-1', name: 'SAFE CORRIDOR', kind: 'safe', x: 46, y: 74, r: 9, color: 'var(--green)' },
+  { id: 'GF-2', name: 'GEOFENCE GF-2', kind: 'geofence', x: 66.3, y: 53, r: 11, color: 'var(--red)' },
+  { id: 'THR-2', name: 'THREAT RING THR-2', kind: 'threat', x: 26, y: 45.5, r: 7, color: 'var(--amber)' },
+  { id: 'SZ-1', name: 'SAFE CORRIDOR', kind: 'safe', x: 46, y: 80, r: 5, color: 'var(--green)' },
 ]
 
 export const mapPaths = [
-  { id: 'P-1', points: '82,52 76,53 70,55 66,56', color: 'var(--red)', label: 'CONTACT-X ingress' },
-  { id: 'P-2', points: '68,18 62,24 56,30 52,36', color: 'var(--cyan)', label: 'SPECTER-2 reroute' },
-  { id: 'P-3', points: '42,58 44,64 46,70 46,74', color: 'var(--green)', label: 'NOMAD-3 patrol' },
+  { id: 'P-1', points: [[97, 61], [92, 59.5], [88, 58], [80, 56], [73, 54.5]], color: 'var(--red)', label: 'CONTACT-X ingress' },
+  { id: 'P-2', points: [[80, 14], [74, 24], [68, 32], [60, 40]], color: 'var(--cyan)', label: 'SPECTER-2 reroute' },
+  { id: 'P-3', points: [[35, 75], [45, 75], [60, 83], [80, 89], [100, 94]], color: 'var(--green)', label: 'Route Bravo patrol' },
 ]
 
 export const areaSummary = 'AREA SYNTHESIS — Sector 7: 10 tracked entities, 3 active zones. Primary concern: unregistered contact CONTACT-X breached GF-2 eastern boundary and is moving toward zone core (~9 min). Sensor mesh degrading in sector 5 (CAM-07 at 43%). SPECTER-2 reroute in progress will restore coverage in ~6 min. Safe corridor remains clear. Recommend operator decision on GF-2 escalation before 14:12Z.'
 
 // ─── Coordinates intel ───
 export const coordSamples = [
-  { id: 'C-1', raw: '34.0522° N, 118.2437° W', format: 'Decimal Degrees', place: 'Checkpoint North approach', terrain: 'Urban / paved', risk: 'Medium', nearest: 'NOMAD-3 (1.2 km)', action: 'Monitor via ARGUS-NE.' },
-  { id: 'C-2', raw: '34°03\'08" N 118°14\'37" W', format: 'DMS', place: 'Warehouse S-3 loading bay', terrain: 'Industrial flat', risk: 'High', nearest: 'EARSHOT-A (0.4 km)', action: 'Correlate with photo SEG-01.' },
+  { id: 'C-1', raw: '35.0586° N, 118.1767° W', format: 'Decimal Degrees', place: 'Checkpoint North approach', terrain: 'Urban / paved', risk: 'Medium', nearest: 'NOMAD-3 (1.2 km)', action: 'Monitor via ARGUS-NE.' },
+  { id: 'C-2', raw: '35°03\'21" N 118°09\'16" W', format: 'DMS', place: 'Warehouse S-3 loading bay', terrain: 'Industrial flat', risk: 'High', nearest: 'EARSHOT-A (0.4 km)', action: 'Correlate with photo SEG-01.' },
   { id: 'C-3', raw: 'QT 4412 8867', format: 'Grid (MGRS-style)', place: 'Ridge line east', terrain: 'Elevated rock / scrub', risk: 'High', nearest: 'SPECTER-2 (2.1 km)', action: 'Request closer pass — ties to AN-04.' },
   { id: 'C-4', raw: 'REL BRAVO +400m @042°', format: 'Relative', place: 'Route Bravo offset', terrain: 'Unpaved track', risk: 'Low', nearest: 'VANGUARD (0.8 km)', action: 'Tag for patrol sweep.' },
-  { id: 'C-5', raw: '34.0489° N, 118.2401° W', format: 'Decimal Degrees', place: 'GF-2 eastern boundary', terrain: 'Open field', risk: 'Critical', nearest: 'CONTACT-X (0.1 km)', action: 'Active breach — see AN-01.' },
+  { id: 'C-5', raw: '35.0541° N, 118.1426° W', format: 'Decimal Degrees', place: 'GF-2 eastern boundary', terrain: 'Open field', risk: 'Critical', nearest: 'CONTACT-X (0.1 km)', action: 'Active breach — see AN-01.' },
 ]
 
 export const coordClusters = [
@@ -254,26 +271,6 @@ export const documents = [
   },
 ]
 
-// ─── Diagnostics ───
-export const diagnostics = [
-  { name: 'SAM-H Segmentation Pipeline', status: 'Online', value: '32 req/min' },
-  { name: 'LLM Reasoning Layer', status: 'Online', value: '14 ctx active' },
-  { name: 'Audio Transcription', status: 'Online', value: '2 streams' },
-  { name: 'Translation Layer', status: 'Online', value: '3 langs loaded' },
-  { name: 'Video Tracking', status: 'Online', value: '6 tracks' },
-  { name: 'Map Renderer', status: 'Online', value: '60 fps' },
-  { name: '3D Visualization Engine', status: 'Degraded', value: 'partial scan' },
-  { name: 'Data Ingestion', status: 'Online', value: '9 lanes' },
-]
-
-export const diagStats = {
-  latency: '38 ms',
-  uptime: '99.97%',
-  activeFeeds: 11,
-  modelConfidence: '0.87 avg',
-  queueDepth: 14,
-}
-
 // ─── Command console ───
 export const consoleResponses = [
   { match: ['risk', 'mission risk'], response: 'MISSION RISK SYNTHESIS — Current level: ELEVATED (0.72). Drivers: GF-2 breach (critical, 0.96), acoustic impact event (0.87), ridge unknown (0.55, unverified). Mitigations in queue: SPECTER-2 reroute, VANGUARD hold. Risk trend: rising until 14:20Z satellite pass resolves ridge ambiguity.' },
@@ -335,9 +332,9 @@ export const onboardingChecklist = [
 ]
 
 export const seedTargets = [
-  { id: 'TGT-01', name: 'WAREHOUSE S-3', kind: 'structure', x: 64, y: 48, priority: 'High', status: 'Designated', note: 'Suspected staging site — three-source corroboration.' },
-  { id: 'TGT-02', name: 'RIDGE OBJECT', kind: 'unknown', x: 84, y: 30, priority: 'Medium', status: 'Unverified', note: 'Unstable SAM-H mask; requires closer pass.' },
-  { id: 'TGT-03', name: 'ROUTE BRAVO CORRIDOR', kind: 'route', x: 44, y: 62, priority: 'Low', status: 'Monitor', note: 'Supply movement corridor — watch during 14:00–15:00Z window.' },
+  { id: 'TGT-01', name: 'WAREHOUSE S-3', kind: 'structure', x: 66.3, y: 53, priority: 'High', status: 'Designated', note: 'Suspected staging site — three-source corroboration.' },
+  { id: 'TGT-02', name: 'RIDGE OBJECT', kind: 'unknown', x: 92, y: 14, priority: 'Medium', status: 'Unverified', note: 'Unstable SAM-H mask; requires closer pass.' },
+  { id: 'TGT-03', name: 'ROUTE BRAVO CORRIDOR', kind: 'route', x: 60, y: 83, priority: 'Low', status: 'Monitor', note: 'Supply movement corridor — watch during 14:00–15:00Z window.' },
 ]
 
 export const TASK_OPTIONS = [
@@ -422,25 +419,20 @@ export const aarReport = {
   recommendation: 'Archive operation as template. Redeploy sensor mesh with overlap in sector 5. Maintain watch posture on route Bravo for 48h.',
 }
 
-// ─── Theaters ───
-export const THEATERS = {
-  Global: { scene: 'global', grid: 'QT', desc: 'Wide-area multimodal fusion — Sector 7' },
-  Urban: { scene: 'urban', grid: 'UR', desc: 'Dense city-block surveillance — district grid' },
-  Maritime: { scene: 'maritime', grid: 'MR', desc: 'Littoral watch — shipping lanes + harbor approach' },
-  Border: { scene: 'border', grid: 'BD', desc: 'Border corridor — fence line + crossing points' },
-  Airspace: { scene: 'airspace', grid: 'AS', desc: 'Air corridor deconfliction — flight levels 080–240' },
-  Cyber: { scene: 'cyber', grid: 'CY', desc: 'Network topology — intrusion + exfil watch' },
-  'Disaster Response': { scene: 'disaster', grid: 'DR', desc: 'Flood zone — search & rescue coordination' },
-  'Research Lab': { scene: 'lab', grid: 'RL', desc: 'Facility interior — instrument + access monitoring' },
-}
-
 // ─── Console suggestions (phase-aware quick commands) ───
 export const consoleSuggestions = {
-  STANDUP: ['link all assets', 'show comms status', 'summarize readiness', 'advance to planning'],
-  PLANNING: ['request ai plan', 'approve plan', 'summarize current mission risk', 'advance to execution'],
+  STANDUP: ['link all assets', "what's next?", 'summarize readiness', 'advance to planning'],
+  PLANNING: ['request ai plan', 'approve plan', "what's next?", 'start the operation'],
   EXECUTION: [
-    'switch to audio', 'translate the transcript', 'show video thermal view', 'set theater maritime',
-    'filter critical anomalies', 'approve all decisions', 'generate operator briefing', 'end operation',
+    "what's next?", 'open imagery', 'show video thermal view', 'translate the transcript',
+    'log evidence', 'filter critical anomalies', 'summarize current mission risk', 'end operation',
   ],
-  DEBRIEF: ['generate briefing', 'summarize current mission risk', 'return to execution'],
+  DEBRIEF: ["what's next?", 'summarize current mission risk', 'return to execution'],
+}
+
+// Where each linked asset sits on the AO map (% of AO box). Space/data layers have no ground position.
+export const ASSET_POS = {
+  'DR-01': { x: 60, y: 46 }, 'DR-02': { x: 80, y: 14 }, 'CAM-04': { x: 76, y: 45 }, 'CAM-07': { x: 30, y: 68 },
+  'AS-02': { x: 58, y: 59 }, 'AS-05': { x: 73, y: 62 }, 'VH-03': { x: 45, y: 75 }, 'HT-01': { x: 52, y: 67 },
+  '3D-01': { x: 70, y: 49 },
 }

@@ -1,27 +1,18 @@
 import { useEffect, useState } from 'react'
 import StatusBadge from '../StatusBadge.jsx'
-import TerrainCanvas from '../TerrainCanvas.jsx'
 import { photoSegments, photoSummary } from '../../data/mockData.js'
 import { bus } from '../../lib/bus.js'
 import { useWindows } from '../../context/WindowContext.jsx'
 
-// Scene features aligned with the SAM-H segmentation boxes.
-const SCENE_FEATURES = [
-  { type: 'warehouse', x: 55, y: 18, w: 24, h: 20 },
-  { type: 'building', x: 14, y: 20, w: 8, h: 8 },
-  { type: 'building', x: 24, y: 26, w: 5, h: 6 },
-  { type: 'truck', x: 12, y: 55, w: 14, h: 11 },
-  { type: 'persons', x: 36, y: 62, w: 8, h: 9 },
-  { type: 'container', x: 70, y: 58, w: 10, h: 8 },
-  { type: 'blob', x: 84, y: 34, w: 9, h: 10 },
-]
+const STILL = `${import.meta.env.BASE_URL}imagery/s3-still.jpg`
 
 const HEAT_OVERLAY = {
   position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
-  background: `radial-gradient(circle at 19% 60%, rgba(255,77,94,0.45) 0%, rgba(255,180,84,0.3) 12%, transparent 26%),
-    radial-gradient(circle at 40% 66%, rgba(255,180,84,0.4) 0%, transparent 14%),
-    radial-gradient(circle at 67% 28%, rgba(61,214,232,0.22) 0%, transparent 22%),
-    radial-gradient(circle at 88% 39%, rgba(255,77,94,0.35) 0%, transparent 12%)`,
+  background: `radial-gradient(circle at 49% 79%, rgba(255,90,95,0.55) 0%, rgba(245,176,65,0.3) 8%, transparent 16%),
+    radial-gradient(circle at 64% 41%, rgba(245,176,65,0.45) 0%, transparent 10%),
+    radial-gradient(circle at 52% 50%, rgba(76,201,240,0.25) 0%, transparent 14%),
+    radial-gradient(circle at 63% 70%, rgba(245,176,65,0.4) 0%, transparent 7%),
+    radial-gradient(circle at 57% 24%, rgba(255,90,95,0.45) 0%, transparent 9%)`,
   mixBlendMode: 'screen',
 }
 
@@ -58,25 +49,19 @@ export default function PhotoIntelView() {
           <button className="btn-green" onClick={generateSummary}>Generate Image Summary</button>
         </div>
 
-        <div className="stage scanlines" onMouseMove={trackMouse} onMouseLeave={() => setCross(null)}>
-          <TerrainCanvas seed={23} variant="photo" features={SCENE_FEATURES} />
+        <div className="stage imagery photo-stage" onMouseMove={trackMouse} onMouseLeave={() => setCross(null)}>
+          <img className="stage-img" src={STILL} alt="Overhead still of Warehouse S-3 and surrounding hangars" draggable={false} />
           {heatmap && <div style={HEAT_OVERLAY} />}
-          <div className="scan-sweep" />
           {cross && (
             <>
               <div className="crosshair-h" style={{ top: `${cross.y}%` }} />
               <div className="crosshair-v" style={{ left: `${cross.x}%` }} />
               <div className="crosshair-readout" style={{ left: `${Math.min(cross.x, 72)}%`, top: `${Math.min(cross.y + 3, 88)}%` }}>
-                QT {Math.round(4400 + cross.x * 1.2)} {Math.round(8800 + cross.y * 1.2)} · GSD 0.31M · EL 412M
+                {(35.0583 - cross.y * 0.000048).toFixed(5)}° N {(118.1595 - cross.x * 0.000096).toFixed(5)}° W · GSD 0.6M
               </div>
             </>
           )}
-          <div className="stage-label"><span className="rec-dot" />KEYHOLE-9 · FRAME 2231 · SAM-H ACTIVE</div>
-          <div className="radar">
-            <div className="sweep" />
-            <div className="blip" style={{ top: '30%', left: '60%' }} />
-            <div className="blip" style={{ top: '55%', left: '35%', animationDelay: '0.7s' }} />
-          </div>
+          <div className="stage-label"><span className="rec-dot" />KEYHOLE-9 · FRAME 2231 · WAREHOUSE S-3</div>
 
           {photoSegments.map((seg) => (
             <div
@@ -95,7 +80,7 @@ export default function PhotoIntelView() {
               {showMasks && <span className="seg-mask" style={{ background: seg.color }} />}
               {showLabels && (
                 <span className="seg-label" style={seg.box.x + seg.box.w > 80 ? { left: 'auto', right: -1 } : undefined}>
-                  {seg.id} · {seg.label}
+                  {seg.type}
                 </span>
               )}
               <span className="seg-conf">{(seg.confidence * 100).toFixed(0)}%</span>
